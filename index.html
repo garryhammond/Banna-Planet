@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ape Globe Run</title>
+  <link rel="stylesheet" href="styles.css?v=banana-menu77" />
+  <style>body{background:radial-gradient(circle at 50% 8%,#244a68,#0b2028 52%,#03090c)}h1{text-shadow:0 3px 10px #000}.eyebrow{color:#f4d36b}.hud{gap:12px}.hud span{padding:12px 18px;border:2px solid #ffffff45;border-radius:18px;background:linear-gradient(#263c52ee,#132436ee);box-shadow:inset 0 1px #fff4,0 8px 24px #0006;font-weight:900;text-shadow:0 2px 3px #000}.hud #score{color:#ffd66a}.hud #health{color:#ff624e;font-size:18px}.hud #best{color:#fff2c6}.game-shell{border-color:#8ea299aa;box-shadow:0 28px 100px #000b,0 0 50px #477d6b33}.card{background:linear-gradient(#172c3bf2,#0c1b22f2);border:2px solid #ffffff38}button{background:linear-gradient(#fff08a,#f6b82c);box-shadow:0 6px 0 #9a6716,0 10px 26px #f5c33344}</style>
+</head>
+<body>
+  <main>
+    <header>
+      <div><span class="eyebrow">IPHONE PROTOTYPE</span><h1>Ape Globe Run</h1></div>
+      <div class="hud"><span id="debug">CENTER GAP 0°</span><span id="score">🍌 0</span><span id="best">🏆 0</span><span id="health">♥ ♥ ♥</span></div>
+    </header>
+    <section class="game-shell">
+      <canvas id="game" width="390" height="844" tabindex="0" aria-label="A cartoon ape running around a globe"></canvas>
+      <div id="start" class="overlay menu-overlay">
+        <div class="falling-spark spark-one">✦</div><div class="falling-spark spark-two">✦</div><div class="menu-banana" aria-hidden="true">🍌</div>
+        <div class="card menu-card">
+          <div class="brand-kicker">A TINY WORLD. A BIG ADVENTURE.</div>
+          <div class="brand-lockup"><span class="ape-icon" aria-hidden="true">🐵</span><div><h2>BANANA</h2><h2 class="planet-title">PLANET</h2></div></div>
+          <p class="menu-tagline">Spin the jungle. Catch the good stuff.<br>Avoid everything else!</p>
+          <button id="play" class="start-button"><span>▶</span> START GAME</button>
+          <nav class="menu-actions" aria-label="Game options">
+            <button type="button" class="menu-option" data-panel="worlds"><span>🌎</span><b>WORLDS</b><small>Jungle</small></button>
+            <button type="button" class="menu-option" data-panel="how"><span>☝️</span><b>HOW TO PLAY</b><small>Swipe & survive</small></button>
+            <button type="button" class="menu-option" data-panel="settings"><span>⚙️</span><b>SETTINGS</b><small>Sound & feel</small></button>
+          </nav>
+          <div class="menu-panel" id="menu-panel" hidden aria-live="polite"></div>
+          <small class="swipe-note">DRAG ANYWHERE · ROTATE THE WHOLE WORLD</small>
+        </div>
+      </div>
+      <div id="toast" aria-live="polite"></div>
+      <div id="sound-status" role="status" aria-live="polite">🔊 Sound on</div>
+    </section>
+  </main>
+<script type="module" src="game3d.js?v=verified-event-audio84"></script>
+<script>
+  const menuPanel=document.querySelector('#menu-panel');
+  const menuCopy={
+    worlds:'<strong>Choose a world</strong><div class="world-pills"><button class="selected">🌴 Jungle</button><button disabled>❄️ Ice</button><button disabled>🌋 Volcano</button></div><em>More worlds coming soon</em>',
+    how:'<strong>How to play</strong><p>Swipe in any direction to spin the planet. Help the ape catch bananas and dodge bombs, rocks, logs, hives, and solid trees.</p>',
+    settings:'<strong>Settings</strong><div class="setting-row"><span>Sound</span><button class="toggle sound-toggle" aria-pressed="true">ON</button></div><label class="volume-row"><span>Volume <output class="volume-value">65%</output></span><input class="volume-slider" type="range" min="0" max="100" step="5" value="65" aria-label="Master volume"></label><div class="setting-row"><span>Haptics</span><button class="toggle selected" aria-pressed="true">ON</button></div>'
+  };
+  document.querySelectorAll('.menu-option').forEach(button=>button.addEventListener('click',()=>{
+    const same=button.classList.contains('active');document.querySelectorAll('.menu-option').forEach(b=>b.classList.remove('active'));
+    if(same){menuPanel.hidden=true;return;}button.classList.add('active');menuPanel.innerHTML=menuCopy[button.dataset.panel];menuPanel.hidden=false;
+    const sound=menuPanel.querySelector('.sound-toggle'),slider=menuPanel.querySelector('.volume-slider'),volumeValue=menuPanel.querySelector('.volume-value');if(slider){const saved=Math.round(Math.max(0,Math.min(1,Number(localStorage.getItem('bpVolume')??.65)))*100);slider.value=String(saved);volumeValue.textContent=`${saved}%`;}if(sound){const enabled=localStorage.getItem('bpSound')!=='off'&&Number(slider?.value||65)>0;sound.setAttribute('aria-pressed',String(enabled));sound.textContent=enabled?'ON':'OFF';sound.classList.toggle('selected',enabled);}
+    menuPanel.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',()=>{const on=t.getAttribute('aria-pressed')==='true',next=!on;t.setAttribute('aria-pressed',String(next));t.textContent=next?'ON':'OFF';t.classList.toggle('selected',next);if(t.classList.contains('sound-toggle'))window.dispatchEvent(new CustomEvent('bp-sound',{detail:next}));}));
+    if(slider)slider.addEventListener('input',()=>{const value=Number(slider.value);volumeValue.textContent=`${value}%`;const enabled=value>0;sound.setAttribute('aria-pressed',String(enabled));sound.textContent=enabled?'ON':'OFF';sound.classList.toggle('selected',enabled);window.dispatchEvent(new CustomEvent('bp-volume',{detail:value/100}));});
+  }));
+</script>
+</body>
+</html>
