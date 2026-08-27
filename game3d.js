@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { GLTFLoader } from './node_modules/.pnpm/three@0.179.1/node_modules/three/examples/jsm/loaders/GLTFLoader.js';
-import { FBXLoader } from './node_modules/.pnpm/three@0.179.1/node_modules/three/examples/jsm/loaders/FBXLoader.js';
 document.documentElement.dataset.gameModule='booting';
 
 const canvas = document.querySelector('#game');
@@ -279,25 +278,18 @@ const face=new THREE.MeshPhysicalMaterial({color:0xf0ae72,roughness:.7,clearcoat
 const dark=new THREE.MeshStandardMaterial({color:0x20150f,roughness:.9});
 const white=new THREE.MeshStandardMaterial({color:0xfff4db,roughness:.65});
 const apeRoot=new THREE.Group(), apeModel=new THREE.Group(); apeRoot.add(apeModel); world.add(apeRoot);
-let riggedApeRoot=null,riggedApeMixer=null,riggedApeAction=null;
-new FBXLoader().load('assets/models/cc0-monkey/monkey.FBX',asset=>{
-  const bounds=new THREE.Box3().setFromObject(asset),center=bounds.getCenter(new THREE.Vector3()),scaleWrap=new THREE.Group();
-  asset.position.set(-center.x,-bounds.min.y,-center.z);asset.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
-  scaleWrap.scale.setScalar(.00315);scaleWrap.add(asset);riggedApeRoot=new THREE.Group();riggedApeRoot.add(scaleWrap);riggedApeRoot.visible=false;apeRoot.add(riggedApeRoot);
-  if(asset.animations.length){riggedApeMixer=new THREE.AnimationMixer(asset);riggedApeAction=riggedApeMixer.clipAction(asset.animations[0]);riggedApeAction.play();}
-  document.documentElement.dataset.heroAsset='cc0-rigged';
-},error=>{console.warn('Rigged CC0 ape fallback active',error);document.documentElement.dataset.heroAsset='procedural-fallback';});
+document.documentElement.dataset.heroAsset='custom-cute';
 const apeContact=new THREE.Mesh(new THREE.CylinderGeometry(.16,.18,.009,20),new THREE.MeshBasicMaterial({color:0x173d18,transparent:true,opacity:.68,depthWrite:false}));
 apeContact.scale.z=.55;world.add(apeContact);
 const body=spherePart(new THREE.SphereGeometry(.24,22,18),fur,[0,.43,0],[.84,1.2,.74],apeModel);
-const head=spherePart(new THREE.SphereGeometry(.285,24,20),fur,[0,.8,0],[1.03,1.02,.94],apeModel);
+const head=spherePart(new THREE.SphereGeometry(.295,28,22),fur,[0,.815,0],[1.14,1.12,1.02],apeModel);
 spherePart(new THREE.SphereGeometry(.2,22,16),face,[0,.72,.215],[1.02,.76,.46],apeModel);
 spherePart(new THREE.SphereGeometry(.17,18,12),face,[0,.43,.148],[.72,.92,.23],apeModel);
 spherePart(new THREE.SphereGeometry(.13,18,12),face,[0,.42,.174],[.72,.82,.2],apeModel);
 for(const side of [-1,1]){
-  spherePart(new THREE.SphereGeometry(.1,14,10),face,[side*.28,.8,0],[.55,1,.45],apeModel);
-  spherePart(new THREE.SphereGeometry(.065,12,8),new THREE.MeshStandardMaterial({color:0xb86f43,roughness:.82}),[side*.292,.8,.018],[.48,.75,.32],apeModel);
-  spherePart(new THREE.SphereGeometry(.062,14,10),white,[side*.087,.87,.232],[1,.98,.45],apeModel);
+  spherePart(new THREE.SphereGeometry(.11,16,12),face,[side*.315,.81,0],[.6,1,.48],apeModel);
+  spherePart(new THREE.SphereGeometry(.07,14,10),new THREE.MeshStandardMaterial({color:0xb86f43,roughness:.82}),[side*.326,.81,.02],[.5,.76,.34],apeModel);
+  spherePart(new THREE.SphereGeometry(.069,16,12),white,[side*.092,.89,.246],[1.02,1.06,.48],apeModel);
   spherePart(new THREE.SphereGeometry(.034,12,9),new THREE.MeshStandardMaterial({color:0x7c451e,roughness:.55}),[side*.082,.882,.257],[1,1,.45],apeModel);
   spherePart(new THREE.SphereGeometry(.019,10,8),dark,[side*.08,.892,.27],[1,1,.5],apeModel);
   const brow=spherePart(new THREE.BoxGeometry(.105,.022,.028),fur,[side*.085,.925,.244],[1,1,1],apeModel);brow.rotation.z=-side*.15;
@@ -440,14 +432,14 @@ function rotateWorld(dx,dy,userGesture=false){
   const qx=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),dx);
   const qy=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),dy);
   world.quaternion.premultiply(qx).premultiply(qy).normalize();
-  if(userGesture)recognize=.22;
+  if(userGesture)recognize=.1;
 }
 const activePointers=new Map();
 let pinchDistance=0;
 function pointerDistance(){const p=[...activePointers.values()];return p.length<2?0:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);}
 function finishPointer(e){activePointers.delete(e.pointerId);pinchDistance=0;if(activePointers.size===1){const p=[...activePointers.values()][0];dragPrev.set(p.x,p.y);dragging=true;}else dragging=false;}
 canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});velocity.set(0,0);if(activePointers.size===1){dragging=true;dragPrev.set(e.clientX,e.clientY);}else{dragging=false;pinchDistance=pointerDistance();}});
-canvas.addEventListener('pointermove',e=>{if(!activePointers.has(e.pointerId))return;activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(activePointers.size>=2){const nextDistance=pointerDistance();if(pinchDistance>0&&nextDistance>0){cameraZoom=THREE.MathUtils.clamp(cameraZoom+Math.log(pinchDistance/nextDistance)*.38,0,1);applyCameraZoom();}pinchDistance=nextDistance;velocity.set(0,0);return;}if(!dragging)return;const dx=(e.clientX-dragPrev.x)*.00115,dy=(e.clientY-dragPrev.y)*.00115;rotateWorld(dx,dy,true);velocity.set(dx*.3,dy*.3);dragPrev.set(e.clientX,e.clientY);lastMove=performance.now();});
+canvas.addEventListener('pointermove',e=>{if(!activePointers.has(e.pointerId))return;activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(activePointers.size>=2){const nextDistance=pointerDistance();if(pinchDistance>0&&nextDistance>0){cameraZoom=THREE.MathUtils.clamp(cameraZoom+Math.log(pinchDistance/nextDistance)*.3,0,1);applyCameraZoom();}pinchDistance=nextDistance;velocity.set(0,0);return;}if(!dragging)return;const dx=(e.clientX-dragPrev.x)*.00115,dy=(e.clientY-dragPrev.y)*.00115;rotateWorld(dx,dy,true);velocity.set(dx*.75,dy*.75);dragPrev.set(e.clientX,e.clientY);lastMove=performance.now();});
 canvas.addEventListener('pointerup',finishPointer);canvas.addEventListener('pointercancel',finishPointer);
 const heldKeys={};
 const MOVE_KEYS=['arrowleft','arrowright','arrowup','arrowdown','a','d','w','s'];
@@ -503,7 +495,7 @@ function updateApe(dt,t){
   else if(trip<=0){
     // Spherical travel speed is capped to what the short legs can physically
     // support. This keeps root motion matched to visible steps instead of skating.
-    const wanted=gap>=.19?.245:gap>=.08?THREE.MathUtils.lerp(.11,.21,(gap-.08)/.11):Math.min(.072,Math.max(0,(gap-.012)*1.12));runSpeed+=THREE.MathUtils.clamp(wanted-runSpeed,-dt*.24,dt*.24);
+    const wanted=gap>=.19?.36:gap>=.08?THREE.MathUtils.lerp(.17,.32,(gap-.08)/.11):Math.min(.1,Math.max(0,(gap-.012)*1.55));runSpeed+=THREE.MathUtils.clamp(wanted-runSpeed,-dt*.55,dt*.55);
     if(gap>.005){
       const previous=apeN.clone();
       const desired=tangentToward(apeN,targetN);let moveDir=desired.clone();
@@ -596,7 +588,7 @@ let dropTimer=4,last=performance.now();
 function frame(now){
   const dt=Math.min(.033,(now-last)/1000);last=now;const t=now/1000;
   if(running){
-    if(!dragging){const kv=keyboardVector();if(kv.x||kv.y){velocity.set(kv.x*KEY_TURN_SPEED,kv.y*KEY_TURN_SPEED);recognize=.22;}rotateWorld(velocity.x,velocity.y);velocity.multiplyScalar(Math.pow(.0008,dt));if(velocity.length()<.000025)velocity.set(0,0);}
+    if(!dragging){const kv=keyboardVector();if(kv.x||kv.y){velocity.set(kv.x*KEY_TURN_SPEED,kv.y*KEY_TURN_SPEED);recognize=.1;}rotateWorld(velocity.x,velocity.y);velocity.multiplyScalar(Math.pow(.12,dt));if(velocity.length()<.000018)velocity.set(0,0);}
     updateApe(dt,t);dropTimer-=dt;if(dropTimer<=0){spawnDrop();dropTimer=2.8+Math.random()*2;}
     for(let i=planes.length-1;i>=0;i--){const p=planes[i];p.progress+=dt*.42;p.g.position.copy(p.n).multiplyScalar(R+2.05).addScaledVector(p.tangent,(p.progress-.5)*5.2);p.g.quaternion.copy(p.orientation);p.g.userData.prop.rotation.x+=dt*24;if(!p.released&&p.progress>=.48){p.released=true;releaseDrop(p.type,p.n);}if(p.progress>1.12){world.remove(p.g);planes.splice(i,1);}}
     for(let i=drops.length-1;i>=0;i--){const d=drops[i];
@@ -646,7 +638,6 @@ function frame(now){
     }
     for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life-=dt;e.g.scale.multiplyScalar(1+dt*7);e.g.material.opacity=Math.max(0,e.life*1.7);if(e.life<=0){world.remove(e.g);effects.splice(i,1);}}
   }
-  if(riggedApeRoot){const useRigged=running&&!knockedOut&&trip<=0&&hitTimer<=0&&startleTimer<=0&&beeWaveTimer<=0;riggedApeRoot.visible=useRigged;apeModel.visible=!useRigged;riggedApeRoot.position.copy(apeModel.position);riggedApeRoot.rotation.set(0,apeModel.rotation.y+Math.PI,0);if(riggedApeAction)riggedApeAction.timeScale=THREE.MathUtils.clamp(.35+runSpeed*10,.38,1.45);if(riggedApeMixer)riggedApeMixer.update(dt);}
   renderer.render(scene,camera);requestAnimationFrame(frame);
 }
 playButton.addEventListener('click',()=>{
