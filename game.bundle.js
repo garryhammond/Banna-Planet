@@ -34853,11 +34853,11 @@ void main() {
   var planes = [];
   function makeBanana() {
     const g = new Group(), tipMat = new MeshStandardMaterial({ color: 5517334, roughness: 0.9 });
-    for (let j = -1; j <= 1; j++) {
-      const curve = new CatmullRomCurve3([new Vector3(-0.12 + j * 0.045, 0.1, 0), new Vector3(j * 0.035, -0.045, 0), new Vector3(0.12 + j * 0.045, 0.085, 0)]);
-      const b = new Mesh(new TubeGeometry(curve, 24, 0.043, 10, false), bananaMat);
-      b.rotation.z = j * 0.12;
-      b.position.z = j * 0.025;
+    for (let j = -1; j <= 2; j++) {
+      const offset = j - 0.5, curve = new CatmullRomCurve3([new Vector3(-0.13 + offset * 0.038, 0.11, 0), new Vector3(offset * 0.032, -0.055, 0), new Vector3(0.13 + offset * 0.038, 0.09, 0)]);
+      const b = new Mesh(new TubeGeometry(curve, 28, 0.046, 12, false), bananaMat);
+      b.rotation.z = offset * 0.105;
+      b.position.z = offset * 0.022;
       b.castShadow = true;
       g.add(b);
       for (const p of [curve.points[0], curve.points[curve.points.length - 1]]) {
@@ -34867,40 +34867,70 @@ void main() {
         g.add(tip);
       }
     }
-    const stem = new Mesh(new CylinderGeometry(0.022, 0.032, 0.12, 8), tipMat);
-    stem.position.set(0.12, 0.15, 0);
+    const crown = new Mesh(new SphereGeometry(0.052, 10, 8), new MeshStandardMaterial({ color: 7245092, roughness: 0.78 }));
+    crown.position.set(0.14, 0.13, 0);
+    crown.scale.set(1, 0.65, 1);
+    g.add(crown);
+    const stem = new Mesh(new CylinderGeometry(0.022, 0.032, 0.13, 9), tipMat);
+    stem.position.set(0.16, 0.18, 0);
     stem.rotation.z = -0.28;
     g.add(stem);
-    g.add(new PointLight(16766554, 1.25, 2.2));
+    g.add(new PointLight(16766554, 1.4, 2.4));
     return g;
   }
   function makeBomb() {
-    const g = new Group(), b = new Mesh(new DodecahedronGeometry(0.22, 1), bombMat);
+    const g = new Group(), b = new Mesh(new SphereGeometry(0.225, 18, 14), bombMat);
+    b.scale.set(1, 0.98, 0.96);
     b.castShadow = true;
     g.add(b);
-    const eyeMat = new MeshBasicMaterial({ color: 16183773 });
-    for (const x of [-0.07, 0.07]) spherePart(new SphereGeometry(0.035, 8, 6), eyeMat, [x, 0.04, 0.19], [1, 1, 0.35], g);
-    const fuse = new Mesh(new CylinderGeometry(0.018, 0.024, 0.18, 8), brown);
-    fuse.position.y = 0.24;
+    const bone = new MeshStandardMaterial({ color: 16773323, roughness: 0.72 }), plate = spherePart(new SphereGeometry(0.13, 16, 12), bone, [0, 0.025, 0.19], [0.92, 0.82, 0.22], g);
+    for (const x of [-0.052, 0.052]) spherePart(new SphereGeometry(0.037, 10, 8), dark, [x, 0.055, 0.221], [1, 1, 0.32], g);
+    const noseHole = new Mesh(new ConeGeometry(0.022, 0.045, 3), dark);
+    noseHole.position.set(0, 6e-3, 0.228);
+    noseHole.rotation.x = Math.PI / 2;
+    g.add(noseHole);
+    for (const x of [-0.045, -0.015, 0.015, 0.045]) {
+      const tooth = new Mesh(new BoxGeometry(0.025, 0.035, 0.016), bone);
+      tooth.position.set(x, -0.065, 0.225);
+      g.add(tooth);
+    }
+    const studMat = new MeshPhysicalMaterial({ color: 14722605, metalness: 0.55, roughness: 0.34 });
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2, stud = new Mesh(new SphereGeometry(0.025, 8, 6), studMat);
+      stud.position.set(Math.cos(a) * 0.205, Math.sin(a) * 0.205, 0);
+      g.add(stud);
+    }
+    const cap = new Mesh(new CylinderGeometry(0.06, 0.08, 0.06, 10), studMat);
+    cap.position.y = 0.235;
+    g.add(cap);
+    const fuse = new Mesh(new TubeGeometry(new CatmullRomCurve3([new Vector3(0, 0.25, 0), new Vector3(0.04, 0.31, 0), new Vector3(0.08, 0.32, 0.015)]), 8, 0.014, 6, false), brown);
     g.add(fuse);
-    const warning = new PointLight(16730930, 0.55, 1.4);
-    warning.position.y = 0.18;
-    g.add(warning);
+    const spark = new PointLight(16730930, 1.1, 1.8);
+    spark.position.set(0.08, 0.33, 0.015);
+    g.add(spark);
     return g;
   }
   function makeFallingLog() {
-    const g = new Group(), m = new Mesh(new CylinderGeometry(0.2, 0.25, 1.2, 12), brown);
-    m.rotation.z = Math.PI / 2;
-    m.castShadow = true;
-    g.add(m);
+    const g = new Group();
+    hydrateModelAsset(g, "Log");
+    if (!modelTemplates.has("Log")) {
+      const m = new Mesh(new CylinderGeometry(0.2, 0.25, 1.2, 14), brown);
+      m.rotation.z = Math.PI / 2;
+      m.castShadow = true;
+      g.add(m);
+    }
     return g;
   }
   function makeFallingRock() {
-    const g = new Group(), m = new Mesh(new DodecahedronGeometry(0.25, 1), rockMat);
-    m.scale.set(1.15, 0.9, 1);
-    m.castShadow = true;
-    m.receiveShadow = true;
-    g.add(m);
+    const g = new Group();
+    hydrateModelAsset(g, "Rock");
+    if (!modelTemplates.has("Rock")) {
+      const m = new Mesh(new DodecahedronGeometry(0.25, 1), rockMat);
+      m.scale.set(1.15, 0.9, 1);
+      m.castShadow = true;
+      m.receiveShadow = true;
+      g.add(m);
+    }
     return g;
   }
   function makeHive() {
@@ -34934,6 +34964,10 @@ void main() {
     hole.scale.y = 0.78;
     hole.position.set(0, -0.08, 0.238);
     g.add(hole);
+    const dropTip = new Mesh(new ConeGeometry(0.09, 0.13, 14), hiveMat);
+    dropTip.position.y = -0.29;
+    dropTip.rotation.z = Math.PI;
+    g.add(dropTip);
     return g;
   }
   var DROP_WEIGHTS = [["banana", 0.55], ["rock", 0.15], ["log", 0.12], ["bomb", 0.1], ["hive", 0.08]];
@@ -35012,9 +35046,23 @@ void main() {
   }
   function spawnBees(hive) {
     hive.triggered = true;
-    const g = new Group(), beeMat = new MeshStandardMaterial({ color: 16106802, emissive: 7030272, emissiveIntensity: 0.4, roughness: 0.65 });
+    const g = new Group(), beeMat = new MeshStandardMaterial({ color: 16106802, emissive: 7030272, emissiveIntensity: 0.32, roughness: 0.65 }), stripeMat = new MeshStandardMaterial({ color: 3417108, roughness: 0.82 }), wingMat = new MeshPhysicalMaterial({ color: 14284287, transparent: true, opacity: 0.72, roughness: 0.22, depthWrite: false });
     for (let i = 0; i < 14; i++) {
-      const dot = new Mesh(new SphereGeometry(0.03, 7, 5), beeMat);
+      const dot = new Group(), bodyBee = new Mesh(new SphereGeometry(0.029, 9, 7), beeMat);
+      bodyBee.scale.set(1.35, 0.82, 0.82);
+      dot.add(bodyBee);
+      for (const x of [-0.012, 0.012]) {
+        const stripe = new Mesh(new TorusGeometry(0.021, 5e-3, 5, 10), stripeMat);
+        stripe.rotation.y = Math.PI / 2;
+        stripe.position.x = x;
+        dot.add(stripe);
+      }
+      for (const side of [-1, 1]) {
+        const wing = new Mesh(new SphereGeometry(0.018, 8, 6), wingMat);
+        wing.position.set(0, 0.023, side * 0.022);
+        wing.scale.set(1.35, 0.35, 0.85);
+        dot.add(wing);
+      }
       dot.userData = { phase: i / 14 * Math.PI * 2, radius: 0.09 + i % 3 * 0.035, height: 0.14 + i % 2 * 0.06, speed: 3.8 + i % 4 * 0.55 };
       g.add(dot);
     }

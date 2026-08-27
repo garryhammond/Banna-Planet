@@ -352,20 +352,24 @@ const HIVE_SWARM_RADIUS=.15, BEE_ATTACK_DISTANCE=HIVE_SWARM_RADIUS*5;
 const drops=[], bees=[], planes=[];
 function makeBanana(){
   const g=new THREE.Group(),tipMat=new THREE.MeshStandardMaterial({color:0x543016,roughness:.9});
-  for(let j=-1;j<=1;j++){
-    const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(-.12+j*.045,.1,0),new THREE.Vector3(j*.035,-.045,0),new THREE.Vector3(.12+j*.045,.085,0)]);
-    const b=new THREE.Mesh(new THREE.TubeGeometry(curve,24,.043,10,false),bananaMat);b.rotation.z=j*.12;b.position.z=j*.025;b.castShadow=true;g.add(b);
+  for(let j=-1;j<=2;j++){
+    const offset=j-0.5,curve=new THREE.CatmullRomCurve3([new THREE.Vector3(-.13+offset*.038,.11,0),new THREE.Vector3(offset*.032,-.055,0),new THREE.Vector3(.13+offset*.038,.09,0)]);
+    const b=new THREE.Mesh(new THREE.TubeGeometry(curve,28,.046,12,false),bananaMat);b.rotation.z=offset*.105;b.position.z=offset*.022;b.castShadow=true;g.add(b);
     for(const p of [curve.points[0],curve.points[curve.points.length-1]]){const tip=new THREE.Mesh(new THREE.SphereGeometry(.024,8,6),tipMat);tip.position.copy(p);tip.rotation.z=j*.12;g.add(tip);}
   }
-  const stem=new THREE.Mesh(new THREE.CylinderGeometry(.022,.032,.12,8),tipMat);stem.position.set(.12,.15,0);stem.rotation.z=-.28;g.add(stem);g.add(new THREE.PointLight(0xffd65a,1.25,2.2));return g;
+  const crown=new THREE.Mesh(new THREE.SphereGeometry(.052,10,8),new THREE.MeshStandardMaterial({color:0x6e8d24,roughness:.78}));crown.position.set(.14,.13,0);crown.scale.set(1,.65,1);g.add(crown);const stem=new THREE.Mesh(new THREE.CylinderGeometry(.022,.032,.13,9),tipMat);stem.position.set(.16,.18,0);stem.rotation.z=-.28;g.add(stem);g.add(new THREE.PointLight(0xffd65a,1.4,2.4));return g;
 }
 function makeBomb(){
-  const g=new THREE.Group(),b=new THREE.Mesh(new THREE.DodecahedronGeometry(.22,1),bombMat);b.castShadow=true;g.add(b);
-  const eyeMat=new THREE.MeshBasicMaterial({color:0xf6f1dd});for(const x of [-.07,.07])spherePart(new THREE.SphereGeometry(.035,8,6),eyeMat,[x,.04,.19],[1,1,.35],g);
-  const fuse=new THREE.Mesh(new THREE.CylinderGeometry(.018,.024,.18,8),brown);fuse.position.y=.24;g.add(fuse);const warning=new THREE.PointLight(0xff4b32,.55,1.4);warning.position.y=.18;g.add(warning);return g;
+  const g=new THREE.Group(),b=new THREE.Mesh(new THREE.SphereGeometry(.225,18,14),bombMat);b.scale.set(1,.98,.96);b.castShadow=true;g.add(b);
+  const bone=new THREE.MeshStandardMaterial({color:0xfff0cb,roughness:.72}),plate=spherePart(new THREE.SphereGeometry(.13,16,12),bone,[0,.025,.19],[.92,.82,.22],g);
+  for(const x of [-.052,.052])spherePart(new THREE.SphereGeometry(.037,10,8),dark,[x,.055,.221],[1,1,.32],g);
+  const noseHole=new THREE.Mesh(new THREE.ConeGeometry(.022,.045,3),dark);noseHole.position.set(0,.006,.228);noseHole.rotation.x=Math.PI/2;g.add(noseHole);
+  for(const x of [-.045,-.015,.015,.045]){const tooth=new THREE.Mesh(new THREE.BoxGeometry(.025,.035,.016),bone);tooth.position.set(x,-.065,.225);g.add(tooth);}
+  const studMat=new THREE.MeshPhysicalMaterial({color:0xe0a62d,metalness:.55,roughness:.34});for(let i=0;i<6;i++){const a=i/6*Math.PI*2,stud=new THREE.Mesh(new THREE.SphereGeometry(.025,8,6),studMat);stud.position.set(Math.cos(a)*.205,Math.sin(a)*.205,0);g.add(stud);}
+  const cap=new THREE.Mesh(new THREE.CylinderGeometry(.06,.08,.06,10),studMat);cap.position.y=.235;g.add(cap);const fuse=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0,.25,0),new THREE.Vector3(.04,.31,0),new THREE.Vector3(.08,.32,.015)]),8,.014,6,false),brown);g.add(fuse);const spark=new THREE.PointLight(0xff4b32,1.1,1.8);spark.position.set(.08,.33,.015);g.add(spark);return g;
 }
-function makeFallingLog(){const g=new THREE.Group(),m=new THREE.Mesh(new THREE.CylinderGeometry(.2,.25,1.2,12),brown);m.rotation.z=Math.PI/2;m.castShadow=true;g.add(m);return g;}
-function makeFallingRock(){const g=new THREE.Group(),m=new THREE.Mesh(new THREE.DodecahedronGeometry(.25,1),rockMat);m.scale.set(1.15,.9,1);m.castShadow=true;m.receiveShadow=true;g.add(m);return g;}
+function makeFallingLog(){const g=new THREE.Group();hydrateModelAsset(g,'Log');if(!modelTemplates.has('Log')){const m=new THREE.Mesh(new THREE.CylinderGeometry(.2,.25,1.2,14),brown);m.rotation.z=Math.PI/2;m.castShadow=true;g.add(m);}return g;}
+function makeFallingRock(){const g=new THREE.Group();hydrateModelAsset(g,'Rock');if(!modelTemplates.has('Rock')){const m=new THREE.Mesh(new THREE.DodecahedronGeometry(.25,1),rockMat);m.scale.set(1.15,.9,1);m.castShadow=true;m.receiveShadow=true;g.add(m);}return g;}
 function makeHive(){
   const g=new THREE.Group(),tiers=[
     {y:-.19,r:.225,h:.105},{y:-.105,r:.25,h:.11},{y:-.015,r:.245,h:.105},
@@ -374,7 +378,7 @@ function makeHive(){
   for(const [i,o] of tiers.entries()){const tier=new THREE.Mesh(new THREE.SphereGeometry(o.r,20,12),i%2?hiveMat:hiveRidgeMat);tier.scale.set(1,o.h/o.r,.88);tier.position.y=o.y;tier.castShadow=true;tier.receiveShadow=true;g.add(tier);}
   const neck=new THREE.Mesh(new THREE.CylinderGeometry(.04,.07,.1,10),hiveMat);neck.position.y=.315;g.add(neck);const loop=new THREE.Mesh(new THREE.TorusGeometry(.045,.014,7,16),brown);loop.position.y=.39;loop.rotation.x=Math.PI/2;g.add(loop);
   const entranceRimMat=new THREE.MeshStandardMaterial({color:0x714015,roughness:.86}),holeRim=new THREE.Mesh(new THREE.TorusGeometry(.076,.021,8,20),entranceRimMat);holeRim.position.set(0,-.08,.226);g.add(holeRim);
-  const hole=new THREE.Mesh(new THREE.CircleGeometry(.059,18),dark);hole.scale.y=.78;hole.position.set(0,-.08,.238);g.add(hole);return g;
+  const hole=new THREE.Mesh(new THREE.CircleGeometry(.059,18),dark);hole.scale.y=.78;hole.position.set(0,-.08,.238);g.add(hole);const dropTip=new THREE.Mesh(new THREE.ConeGeometry(.09,.13,14),hiveMat);dropTip.position.y=-.29;dropTip.rotation.z=Math.PI;g.add(dropTip);return g;
 }
 const DROP_WEIGHTS=[['banana',.55],['rock',.15],['log',.12],['bomb',.1],['hive',.08]];
 function pickDropType(){let r=Math.random();for(const [type,weight] of DROP_WEIGHTS){if(r<weight)return type;r-=weight;}return DROP_WEIGHTS[0][0];}
@@ -412,10 +416,9 @@ function qaFallHive(){const n=apeN.clone().applyAxisAngle(new THREE.Vector3(0,1,
 function qaCatchBanana(){const g=makeBanana(),drop={type:'banana',n:apeN.clone(),g,h:.22,vy:.6,landed:false,groundTime:0,triggered:false};world.add(g);drops.push(drop);}
 
 function spawnBees(hive){
-  hive.triggered=true;const g=new THREE.Group(),beeMat=new THREE.MeshStandardMaterial({color:0xf5c532,emissive:0x6b4600,emissiveIntensity:.4,roughness:.65});
+  hive.triggered=true;const g=new THREE.Group(),beeMat=new THREE.MeshStandardMaterial({color:0xf5c532,emissive:0x6b4600,emissiveIntensity:.32,roughness:.65}),stripeMat=new THREE.MeshStandardMaterial({color:0x342414,roughness:.82}),wingMat=new THREE.MeshPhysicalMaterial({color:0xd9f5ff,transparent:true,opacity:.72,roughness:.22,depthWrite:false});
   for(let i=0;i<14;i++){
-    const dot=new THREE.Mesh(new THREE.SphereGeometry(.03,7,5),beeMat);
-    dot.userData={phase:i/14*Math.PI*2,radius:.09+(i%3)*.035,height:.14+(i%2)*.06,speed:3.8+(i%4)*.55};g.add(dot);
+    const dot=new THREE.Group(),bodyBee=new THREE.Mesh(new THREE.SphereGeometry(.029,9,7),beeMat);bodyBee.scale.set(1.35,.82,.82);dot.add(bodyBee);for(const x of [-.012,.012]){const stripe=new THREE.Mesh(new THREE.TorusGeometry(.021,.005,5,10),stripeMat);stripe.rotation.y=Math.PI/2;stripe.position.x=x;dot.add(stripe);}for(const side of [-1,1]){const wing=new THREE.Mesh(new THREE.SphereGeometry(.018,8,6),wingMat);wing.position.set(0,.023,side*.022);wing.scale.set(1.35,.35,.85);dot.add(wing);}dot.userData={phase:i/14*Math.PI*2,radius:.09+(i%3)*.035,height:.14+(i%2)*.06,speed:3.8+(i%4)*.55};g.add(dot);
   }
   g.position.copy(hive.n).multiplyScalar(R+hive.h+.07);g.quaternion.setFromUnitVectors(UP,hive.n);world.add(g);
   const trailMat=new THREE.LineBasicMaterial({color:0xffd84d,transparent:true,opacity:0}),trail=new THREE.Line(new THREE.BufferGeometry().setFromPoints([g.position.clone(),g.position.clone()]),trailMat);trail.visible=false;world.add(trail);
