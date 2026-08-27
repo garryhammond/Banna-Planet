@@ -1,5 +1,11 @@
 {
+	"scripts": {
+		"build": "esbuild game3d.js --bundle --format=iife --target=es2020 --outfile=game.bundle.js"
+	},
 	"dependencies": {
 		"three": "0.179.1"
+	},
+	"devDependencies": {
+		"esbuild": "^0.28.2"
 	}
 }

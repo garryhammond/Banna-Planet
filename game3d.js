@@ -1,4 +1,4 @@
-import * as THREE from './assets/vendor/three.module.js';
+import * as THREE from 'three';
 document.documentElement.dataset.gameModule='booting';
 
 const canvas = document.querySelector('#game');

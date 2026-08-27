@@ -69,13 +69,6 @@
   gameVolume.addEventListener('input',()=>{const value=Number(gameVolume.value),enabled=value>0;gameVolumeValue.textContent=`${value}%`;gameSound.setAttribute('aria-pressed',String(enabled));gameSound.textContent=enabled?'ON':'OFF';gameSound.classList.toggle('selected',enabled);window.dispatchEvent(new CustomEvent('bp-volume',{detail:value/100}));});
   syncGameAudio();
 </script>
-<script type="module">
-  import('./game3d.js?v=browser-startup88').catch(error=>{
-    console.error('Banana Planet failed to start:',error);
-    document.documentElement.dataset.gameModule='failed';
-    const status=document.querySelector('#sound-status');
-    if(status){status.textContent='Game load error — refresh';status.classList.add('visible');}
-  });
-</script>
+    <script defer src="./game.bundle.js?v=browser-bundle89"></script>
 </body>
 </html>
