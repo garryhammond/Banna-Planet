@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from './node_modules/.pnpm/three@0.179.1/node_modules/three/examples/jsm/loaders/GLTFLoader.js';
 document.documentElement.dataset.gameModule='booting';
 
 const canvas = document.querySelector('#game');
@@ -143,6 +144,10 @@ const leaf2 = new THREE.MeshPhysicalMaterial({color:0xf0ffc7,map:leafTexture2,bu
 const rockMat = new THREE.MeshPhysicalMaterial({color:0xe7dfcb,map:rockTexture,bumpMap:rockTexture,bumpScale:.075,roughness:.93,flatShading:true,clearcoat:.035,clearcoatRoughness:.9});
 const moss = new THREE.MeshStandardMaterial({color:0x719a45,map:leafTexture2,bumpMap:leafTexture2,bumpScale:.025,roughness:1});
 const pathMat = new THREE.MeshStandardMaterial({color:0xffdfb5,map:dirtTexture,bumpMap:dirtTexture,bumpScale:.035,roughness:.98,transparent:true,opacity:.94});
+const modelTemplates=new Map(),modelSlots=new Map([['Palm',[]],['Rock',[]],['Log',[]]]);
+function applyModelAsset(slot,name){const source=modelTemplates.get(name);if(!source)return;slot.clear();const model=source.clone(true);model.position.set(0,0,0);model.quaternion.identity();model.scale.set(1,1,1);model.traverse(o=>{if(!o.isMesh)return;o.castShadow=true;o.receiveShadow=true;const n=o.material?.name||'';if(n.startsWith('Leaf'))o.material=n==='LeafDark'?leaf:leaf2;else if(n==='Bark')o.material=bark;else if(n==='BarkBands')o.material=brown;else if(n.startsWith('Stone'))o.material=rockMat;else if(n==='CutWood')o.material=brown;});slot.add(model);}
+function hydrateModelAsset(slot,name){modelSlots.get(name).push(slot);if(modelTemplates.has(name))applyModelAsset(slot,name);}
+new GLTFLoader().load('assets/models/jungle-core.glb',gltf=>{for(const name of ['Palm','Rock','Log']){const found=gltf.scene.getObjectByName(name);if(found){modelTemplates.set(name,found);for(const slot of modelSlots.get(name))applyModelAsset(slot,name);}}document.documentElement.dataset.jungleAssets='ready';},error=>{console.warn('Jungle GLB fallback active',error);document.documentElement.dataset.jungleAssets='fallback';});
 const props=[];
 const MAX_LANDED_PROPS=40;
 const landedProps=[];
@@ -179,7 +184,7 @@ function palm(n,s=.8){
   const frondGeo=new THREE.ShapeGeometry(frondShape,5);frondGeo.translate(0,.02,0);
   for(let i=0;i<13;i++){const a=i/13*Math.PI*2,frond=new THREE.Mesh(frondGeo,i%2?leaf:leaf2);frond.rotation.order='YXZ';frond.rotation.y=-a;frond.rotation.x=-Math.PI/2+.58+(i%3)*.065;frond.rotation.z=(i%2-.5)*.08;frond.scale.set(1.04+(i%4)*.05,1.02+(i%3)*.06,1);crown.add(frond);const vein=new THREE.Mesh(new THREE.CylinderGeometry(.012,.018,.95,6),new THREE.MeshStandardMaterial({color:0x315f22,roughness:.92}));vein.position.set(Math.sin(a)*.43,.12,Math.cos(a)*.43);vein.rotation.z=Math.PI/2;vein.rotation.y=a;vein.rotation.x=.12;crown.add(vein);}
   for(let i=0;i<5;i++){const nut=new THREE.Mesh(new THREE.SphereGeometry(.082,12,9),new THREE.MeshPhysicalMaterial({color:0x789126,roughness:.78}));const a=i/5*Math.PI*2;nut.position.set(Math.cos(a)*.105,-.09,Math.sin(a)*.105);nut.scale.set(.82,1.12,.82);crown.add(nut);}g.add(crown);
-  g.scale.setScalar(s);plant(shadowify(g),n,.07);props.push({kind:'tree',n,radius:.2*s,group:g});
+  hydrateModelAsset(g,'Palm');g.scale.setScalar(s);plant(shadowify(g),n,.07);props.push({kind:'tree',n,radius:.2*s,group:g});
 }
 let rockId=0;
 function rock(n,s=.5){
@@ -190,7 +195,7 @@ function rock(n,s=.5){
   // Only occasional stones carry moss, with varied off-center growth.
   if(id%4===0){const cap=new THREE.Mesh(new THREE.IcosahedronGeometry(.26+(id%3)*.025,1),moss);cap.scale.set(1.15+(id%2)*.25,.14+(id%3)*.025,.82+(id%2)*.15);cap.position.set((id%3-.8)*.07,.5+.04*(id%3),((id+1)%3-1)*.05);cap.rotation.y=id*.37;g.add(cap);}
   if(id%5===2){const chip=new THREE.Mesh(new THREE.DodecahedronGeometry(.18,0),rockMat);chip.position.set(.42,.08,-.08);chip.scale.set(1,.65,.85);g.add(chip);}
-  g.scale.setScalar(s);plant(shadowify(g),n,.06);props.push({kind:'rock',n,radius:.18*s,group:g});
+  hydrateModelAsset(g,'Rock');g.scale.setScalar(s);plant(shadowify(g),n,.06);props.push({kind:'rock',n,radius:.18*s,group:g});
 }
 function log(n,s=.55){
   const g=new THREE.Group(); const m=new THREE.Mesh(new THREE.CylinderGeometry(.22,.28,1.45,12),brown);
@@ -198,7 +203,7 @@ function log(n,s=.55){
   const cutMat=new THREE.MeshStandardMaterial({color:0xc98745,roughness:.92}),ringMat=new THREE.MeshStandardMaterial({color:0x71401f,roughness:.95});
   for(const z of [-.73,.73]){const end=new THREE.Mesh(new THREE.CylinderGeometry(.225,.225,.018,12),cutMat);end.rotation.z=Math.PI/2;end.position.x=z;g.add(end);for(const rr of [.07,.13,.19]){const ring=new THREE.Mesh(new THREE.TorusGeometry(rr,.009,5,20),ringMat);ring.rotation.y=Math.PI/2;ring.position.x=z+(z>0?.012:-.012);g.add(ring);}}
   for(let i=0;i<3;i++){const knot=new THREE.Mesh(new THREE.CylinderGeometry(.035,.055,.07,7),ringMat);knot.position.set(-.3+i*.31,.42,(i%2-.5)*.18);knot.rotation.z=.3;g.add(knot);}
-  g.scale.setScalar(s);plant(shadowify(g),n,.06);props.push({kind:'log',n,radius:.48*s,group:g});
+  hydrateModelAsset(g,'Log');g.scale.setScalar(s);plant(shadowify(g),n,.06);props.push({kind:'log',n,radius:.48*s,group:g});
 }
 function foliage(n,s=.3){
   const g=new THREE.Group();for(let i=0;i<9;i++){const a=i/9*Math.PI*2,m=new THREE.Mesh(new THREE.CapsuleGeometry(.055,.38,4,7),i%2?leaf:leaf2);m.position.set(Math.cos(a)*.17,.12,Math.sin(a)*.17);m.rotation.order='YXZ';m.rotation.y=-a;m.rotation.z=Math.PI/2-.34;m.scale.set(1,.9,.38);g.add(m);}for(let i=0;i<3;i++){const heart=new THREE.Mesh(new THREE.IcosahedronGeometry(.16,1),i%2?leaf2:leaf);heart.position.set((i-1)*.11,.13,-.04);heart.scale.set(1,.48,.8);g.add(heart);}g.scale.setScalar(s);plant(shadowify(g),n,.02);
