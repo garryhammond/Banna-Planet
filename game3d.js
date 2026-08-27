@@ -27,7 +27,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.28;
+renderer.toneMappingExposure = 1.18;
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x78aebf, .019);
@@ -70,12 +70,16 @@ function resizeGame(){
 }
 resizeGame();addEventListener('resize',resizeGame);
 
-scene.add(new THREE.HemisphereLight(0xb9dcff,0x102715,1.65));
-const sun = new THREE.DirectionalLight(0xffd993,5.4);
+scene.add(new THREE.HemisphereLight(0xb9dcff,0x173412,1.35));
+const sun = new THREE.DirectionalLight(0xffd08a,3.7);
 sun.position.set(-5,8,9); sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048); sun.shadow.camera.left=-20; sun.shadow.camera.right=20;
 sun.shadow.camera.top=20; sun.shadow.camera.bottom=-20;sun.shadow.bias=-.00015;sun.shadow.normalBias=.035; scene.add(sun);
 const rim = new THREE.DirectionalLight(0x72bfff,1.55); rim.position.set(7,3,-6); scene.add(rim);
+// A soft camera-side key keeps the hero and foreground props readable instead
+// of becoming silhouettes against the bright storybook sky.
+const heroKey = new THREE.DirectionalLight(0xffd2a0,3.25); heroKey.position.set(-1.5,4.5,10); scene.add(heroKey);
+const faceFill = new THREE.PointLight(0xffe4c4,13,34,1.8); faceFill.position.set(0,3,9); scene.add(faceFill);
 
 const world = new THREE.Group(); scene.add(world);
 function makeGroundTexture(){
@@ -98,7 +102,7 @@ function makeGroundTexture(){
 }
 const groundTexture=new THREE.TextureLoader().load('assets/jungle-ground-v2.png');
 groundTexture.colorSpace=THREE.SRGBColorSpace;groundTexture.wrapS=groundTexture.wrapT=THREE.RepeatWrapping;groundTexture.repeat.set(8,5);groundTexture.anisotropy=renderer.capabilities.getMaxAnisotropy();
-const globeMat = new THREE.MeshPhysicalMaterial({color:0xffffff,map:groundTexture,bumpMap:groundTexture,bumpScale:.032,roughness:.88,metalness:0,clearcoat:.06,clearcoatRoughness:.82});
+const globeMat = new THREE.MeshPhysicalMaterial({color:0xc4e77c,map:groundTexture,bumpMap:groundTexture,bumpScale:.072,roughness:.96,metalness:0,clearcoat:.018,clearcoatRoughness:.94});
 const globe = new THREE.Mesh(new THREE.SphereGeometry(R,96,64),globeMat);
 globe.receiveShadow=true; world.add(globe);
 const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(R*1.016,64,40),new THREE.MeshBasicMaterial({color:0x9de7c5,transparent:true,opacity:.105,side:THREE.BackSide,blending:THREE.AdditiveBlending}));
@@ -134,8 +138,8 @@ function loadSurfaceTexture(path,repeatX=2,repeatY=2){const t=new THREE.TextureL
 const barkTexture=loadSurfaceTexture('assets/jungle-bark-v2.png',2,5),leafTexture=loadSurfaceTexture('assets/jungle-foliage-v2.png',3,3),leafTexture2=leafTexture.clone(),rockTexture=loadSurfaceTexture('assets/jungle-rock-v2.png',2.5,2.5),dirtTexture=loadSurfaceTexture('assets/jungle-dirt-v2.png',2,2);leafTexture2.needsUpdate=true;
 const brown = new THREE.MeshPhysicalMaterial({color:0xffe2bd,map:barkTexture,bumpMap:barkTexture,bumpScale:.045,roughness:.9,clearcoat:.04,clearcoatRoughness:.85});
 const bark = new THREE.MeshPhysicalMaterial({color:0xffddb0,map:barkTexture,bumpMap:barkTexture,bumpScale:.065,roughness:.94,clearcoat:.025,clearcoatRoughness:.9});
-const leaf = new THREE.MeshPhysicalMaterial({color:0xf2ffe8,map:leafTexture,bumpMap:leafTexture,bumpScale:.026,roughness:.76,clearcoat:.12,clearcoatRoughness:.7});
-const leaf2 = new THREE.MeshPhysicalMaterial({color:0xf7ffe8,map:leafTexture2,bumpMap:leafTexture2,bumpScale:.022,roughness:.72,clearcoat:.14,clearcoatRoughness:.66});
+const leaf = new THREE.MeshPhysicalMaterial({color:0xdfffbc,map:leafTexture,bumpMap:leafTexture,bumpScale:.026,roughness:.76,clearcoat:.12,clearcoatRoughness:.7,side:THREE.DoubleSide});
+const leaf2 = new THREE.MeshPhysicalMaterial({color:0xf0ffc7,map:leafTexture2,bumpMap:leafTexture2,bumpScale:.022,roughness:.72,clearcoat:.14,clearcoatRoughness:.66,side:THREE.DoubleSide});
 const rockMat = new THREE.MeshPhysicalMaterial({color:0xe7dfcb,map:rockTexture,bumpMap:rockTexture,bumpScale:.075,roughness:.93,flatShading:true,clearcoat:.035,clearcoatRoughness:.9});
 const moss = new THREE.MeshStandardMaterial({color:0x719a45,map:leafTexture2,bumpMap:leafTexture2,bumpScale:.025,roughness:1});
 const pathMat = new THREE.MeshStandardMaterial({color:0xffdfb5,map:dirtTexture,bumpMap:dirtTexture,bumpScale:.035,roughness:.98,transparent:true,opacity:.94});
@@ -169,10 +173,12 @@ function tree(n,s=1){
 function palm(n,s=.8){
   const g=new THREE.Group();
   const trunkCurve=new THREE.CatmullRomCurve3([new THREE.Vector3(0,0,0),new THREE.Vector3(.035,.5,0),new THREE.Vector3(.11,1.08,.015),new THREE.Vector3(.2,1.65,0)]),trunk=new THREE.Mesh(new THREE.TubeGeometry(trunkCurve,24,.09,9,false),bark);g.add(trunk);
-  for(let i=0;i<7;i++){const band=new THREE.Mesh(new THREE.TorusGeometry(.093-i*.002,.012,5,10),brown);band.position.copy(trunkCurve.getPoint(.1+i*.12));band.rotation.x=Math.PI/2;band.rotation.z=-.08;g.add(band);}
+  for(let i=0;i<10;i++){const band=new THREE.Mesh(new THREE.TorusGeometry(.098-i*.0022,.014,5,10),brown);band.position.copy(trunkCurve.getPoint(.055+i*.085));band.rotation.x=Math.PI/2;band.rotation.z=-.08;g.add(band);}
   const crown=new THREE.Group();crown.position.set(.2,1.65,0);
-  for(let i=0;i<10;i++){const a=i/10*Math.PI*2,frond=new THREE.Group(),stem=new THREE.Mesh(new THREE.CylinderGeometry(.014,.022,.82,6),new THREE.MeshStandardMaterial({color:0x356c27,roughness:.9}));stem.position.y=.38;frond.add(stem);for(let j=0;j<8;j++){const y=.09+j*.085,width=.17*(1-Math.abs(j-3.5)/5),blade=new THREE.Mesh(new THREE.CapsuleGeometry(.018,Math.max(.08,width),3,6),j%2?leaf:leaf2);blade.position.set((j%2?-1:1)*(.04+width*.45),y,0);blade.rotation.z=(j%2?1:-1)*(1.08+.04*j);blade.scale.z=.35;frond.add(blade);}frond.rotation.order='YXZ';frond.rotation.y=-a;frond.rotation.z=1.02+(i%3)*.1;frond.rotation.x=(i%2-.5)*.14;crown.add(frond);}
-  for(let i=0;i<3;i++){const nut=new THREE.Mesh(new THREE.SphereGeometry(.075,10,8),brown);nut.position.set((i-1)*.08,-.08,(i%2-.5)*.08);crown.add(nut);}g.add(crown);
+  const frondShape=new THREE.Shape();frondShape.moveTo(0,0);frondShape.lineTo(-.08,.1);frondShape.lineTo(-.19,.18);frondShape.lineTo(-.11,.24);frondShape.lineTo(-.22,.34);frondShape.lineTo(-.12,.4);frondShape.lineTo(-.2,.51);frondShape.lineTo(-.1,.57);frondShape.lineTo(-.16,.68);frondShape.lineTo(-.07,.73);frondShape.lineTo(-.1,.83);frondShape.lineTo(0,.98);frondShape.lineTo(.1,.83);frondShape.lineTo(.07,.73);frondShape.lineTo(.16,.68);frondShape.lineTo(.1,.57);frondShape.lineTo(.2,.51);frondShape.lineTo(.12,.4);frondShape.lineTo(.22,.34);frondShape.lineTo(.11,.24);frondShape.lineTo(.19,.18);frondShape.lineTo(.08,.1);frondShape.closePath();
+  const frondGeo=new THREE.ShapeGeometry(frondShape,5);frondGeo.translate(0,.02,0);
+  for(let i=0;i<13;i++){const a=i/13*Math.PI*2,frond=new THREE.Mesh(frondGeo,i%2?leaf:leaf2);frond.rotation.order='YXZ';frond.rotation.y=-a;frond.rotation.x=-Math.PI/2+.58+(i%3)*.065;frond.rotation.z=(i%2-.5)*.08;frond.scale.set(1.04+(i%4)*.05,1.02+(i%3)*.06,1);crown.add(frond);const vein=new THREE.Mesh(new THREE.CylinderGeometry(.012,.018,.95,6),new THREE.MeshStandardMaterial({color:0x315f22,roughness:.92}));vein.position.set(Math.sin(a)*.43,.12,Math.cos(a)*.43);vein.rotation.z=Math.PI/2;vein.rotation.y=a;vein.rotation.x=.12;crown.add(vein);}
+  for(let i=0;i<5;i++){const nut=new THREE.Mesh(new THREE.SphereGeometry(.082,12,9),new THREE.MeshPhysicalMaterial({color:0x789126,roughness:.78}));const a=i/5*Math.PI*2;nut.position.set(Math.cos(a)*.105,-.09,Math.sin(a)*.105);nut.scale.set(.82,1.12,.82);crown.add(nut);}g.add(crown);
   g.scale.setScalar(s);plant(shadowify(g),n,.07);props.push({kind:'tree',n,radius:.2*s,group:g});
 }
 let rockId=0;
@@ -230,12 +236,12 @@ for(let i=0;i<360;i++){
   const y=1-(i+.5)/360*2, lat=Math.asin(y), lon=i*2.399963;
   const n=normalAt(lat,lon), k=i%15;
   if(n.angleTo(CAMERA_CENTER_NORMAL)<.15) foliage(n,.55);
-  else if(k===0||k===7) tree(n, .58+(i%5)*.05);
+  else if(k===0||k===7){if(i%4===0)palm(n,.66+(i%4)*.045);else tree(n, .58+(i%5)*.05);}
   else if(k===3||k===10) rock(n,.42+(i%4)*.06);
   else if(k===5) log(n,.48+(i%3)*.07);
   else foliage(n,.55+(i%3)*.08);
 }
-for(let i=0;i<22;i++){const y=1-(i+.5)/22*2;palm(normalAt(Math.asin(y),i*2.399963+1.1),.62+(i%4)*.06);}
+for(let i=0;i<48;i++){const y=1-(i+.5)/48*2;palm(normalAt(Math.asin(y),i*2.399963+1.1),.62+(i%5)*.055);}
 
 // Non-blocking surface dressing is distributed over the complete planet.
 for(let i=0;i<140;i++){
@@ -262,8 +268,8 @@ flower(midNormal(.055,-.13),0xff7fa5,.75);flower(midNormal(.095,.12),0xffcf62,.6
 function spherePart(geo,mat,pos,scale,parent){const m=new THREE.Mesh(geo,mat);m.position.set(...pos);m.scale.set(...scale);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
 function makeFurTexture(){const c=document.createElement('canvas');c.width=c.height=256;const q=c.getContext('2d');q.fillStyle='#6b351c';q.fillRect(0,0,256,256);let s=517;const r=()=>((s=(s*1664525+1013904223)>>>0)/4294967296);for(let i=0;i<2400;i++){const x=r()*256,y=r()*256,l=2+r()*7;q.globalAlpha=.12+r()*.32;q.strokeStyle=r()>.5?'#a15827':'#2d180f';q.beginPath();q.moveTo(x,y);q.lineTo(x+(r()-.5)*2,y+l);q.stroke();}q.globalAlpha=1;const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(3,4);return t;}
 const furTexture=makeFurTexture();
-const fur=new THREE.MeshPhysicalMaterial({color:0x7a3c1d,map:furTexture,bumpMap:furTexture,bumpScale:.018,roughness:.84,sheen:.16,sheenColor:new THREE.Color(0xb86c32)});
-const face=new THREE.MeshPhysicalMaterial({color:0xd99a62,roughness:.72,clearcoat:.08,clearcoatRoughness:.82});
+const fur=new THREE.MeshPhysicalMaterial({color:0xa95928,map:furTexture,bumpMap:furTexture,bumpScale:.026,roughness:.86,sheen:.28,sheenColor:new THREE.Color(0xe58a45),emissive:0x210d05,emissiveIntensity:.12});
+const face=new THREE.MeshPhysicalMaterial({color:0xf0ae72,roughness:.7,clearcoat:.09,clearcoatRoughness:.8,emissive:0x281006,emissiveIntensity:.055});
 const dark=new THREE.MeshStandardMaterial({color:0x20150f,roughness:.9});
 const white=new THREE.MeshStandardMaterial({color:0xfff4db,roughness:.65});
 const apeRoot=new THREE.Group(), apeModel=new THREE.Group(); apeRoot.add(apeModel); world.add(apeRoot);
@@ -285,6 +291,13 @@ for(const side of [-1,1]){
 }
 const mouth=spherePart(new THREE.SphereGeometry(.065,14,10),dark,[0,.675,.292],[.78,.72,.2],apeModel);const tongue=spherePart(new THREE.SphereGeometry(.038,12,8),new THREE.MeshStandardMaterial({color:0xb75e4f,roughness:.75}),[0,.653,.306],[1,.34,.2],apeModel);
 for(let i=-1;i<=1;i++){const tuft=new THREE.Mesh(new THREE.ConeGeometry(.045,.14,7),fur);tuft.position.set(i*.04,1.065,-.01+Math.abs(i)*.012);tuft.rotation.z=-i*.22;tuft.castShadow=true;apeModel.add(tuft);}
+// Reference-driven silhouette details: cheek fur, a readable nose and a curled
+// tail give the hero a recognizable cartoon-ape profile from gameplay distance.
+for(const side of [-1,1])for(let i=0;i<3;i++){const cheek=new THREE.Mesh(new THREE.ConeGeometry(.032,.105,6),fur);cheek.position.set(side*(.245+i*.012),.77-i*.055,.025);cheek.rotation.z=side*(1.15+i*.12);cheek.castShadow=true;apeModel.add(cheek);}
+const nose=spherePart(new THREE.SphereGeometry(.054,14,10),new THREE.MeshPhysicalMaterial({color:0x7b3f27,roughness:.76}),[0,.755,.315],[1.15,.72,.7],apeModel);
+for(const side of [-1,1])spherePart(new THREE.SphereGeometry(.012,8,6),dark,[side*.022,.758,.35],[.72,.5,.5],apeModel);
+const tailCurve=new THREE.CatmullRomCurve3([new THREE.Vector3(.03,.48,-.16),new THREE.Vector3(.28,.5,-.24),new THREE.Vector3(.39,.65,-.18),new THREE.Vector3(.36,.79,-.1),new THREE.Vector3(.27,.79,-.07)]);
+const tail=new THREE.Mesh(new THREE.TubeGeometry(tailCurve,22,.045,8,false),fur);tail.castShadow=true;apeModel.add(tail);
 const limbs={};
 function makeJointedLimb(name,x,y,isLeg){
   const upperLen=isLeg?.2:.19,lowerLen=isLeg?.19:.2,root=new THREE.Group(),joint=new THREE.Group(),end=new THREE.Group();
@@ -303,7 +316,7 @@ for(const side of [-1,1]){
   for(let i=-1;i<=1;i++)spherePart(new THREE.SphereGeometry(.019,8,6),face,[i*.024,-.018,.07+Math.abs(i)*.008],[.72,.5,1.15],hand);
   for(let i=-1;i<=1;i++)spherePart(new THREE.SphereGeometry(.024,8,6),face,[i*.029,-.014,.105],[.8,.48,1.35],foot);
 }
-apeModel.scale.setScalar(.42); apeModel.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
+apeModel.scale.setScalar(.5); apeModel.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
 const stunBirds=new THREE.Group(),birdMat=new THREE.MeshStandardMaterial({color:0xffd43b,emissive:0x8a5600,emissiveIntensity:.5,roughness:.6});
 for(let i=0;i<5;i++){const bird=new THREE.Group(),bodyBird=new THREE.Mesh(new THREE.SphereGeometry(.045,8,6),birdMat);bird.add(bodyBird);for(const side of [-1,1]){const wing=new THREE.Mesh(new THREE.ConeGeometry(.025,.09,5),birdMat);wing.position.x=side*.055;wing.rotation.z=side*Math.PI/2;bird.add(wing);}bird.userData.phase=i/5*Math.PI*2;stunBirds.add(bird);}stunBirds.visible=false;apeModel.add(stunBirds);
 

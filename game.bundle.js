@@ -6043,29 +6043,29 @@
       _edge2.subVectors(c, a);
       _normal$1.crossVectors(_edge1, _edge2);
       let DdN = this.direction.dot(_normal$1);
-      let sign;
+      let sign2;
       if (DdN > 0) {
         if (backfaceCulling) return null;
-        sign = 1;
+        sign2 = 1;
       } else if (DdN < 0) {
-        sign = -1;
+        sign2 = -1;
         DdN = -DdN;
       } else {
         return null;
       }
       _diff.subVectors(this.origin, a);
-      const DdQxE2 = sign * this.direction.dot(_edge2.crossVectors(_diff, _edge2));
+      const DdQxE2 = sign2 * this.direction.dot(_edge2.crossVectors(_diff, _edge2));
       if (DdQxE2 < 0) {
         return null;
       }
-      const DdE1xQ = sign * this.direction.dot(_edge1.cross(_diff));
+      const DdE1xQ = sign2 * this.direction.dot(_edge1.cross(_diff));
       if (DdE1xQ < 0) {
         return null;
       }
       if (DdQxE2 + DdE1xQ > DdN) {
         return null;
       }
-      const QdN = -sign * _diff.dot(_normal$1);
+      const QdN = -sign2 * _diff.dot(_normal$1);
       if (QdN < 0) {
         return null;
       }
@@ -11387,7 +11387,7 @@
      * @param {Raycaster} raycaster - The raycaster.
      * @param {Array<Object>} intersects - The target array that holds the intersection points.
      */
-    raycast(raycaster, intersects) {
+    raycast(raycaster, intersects2) {
       const geometry = this.geometry;
       const material = this.material;
       const matrixWorld = this.matrixWorld;
@@ -11405,9 +11405,9 @@
       if (geometry.boundingBox !== null) {
         if (_ray$3.intersectsBox(geometry.boundingBox) === false) return;
       }
-      this._computeIntersections(raycaster, intersects, _ray$3);
+      this._computeIntersections(raycaster, intersects2, _ray$3);
     }
-    _computeIntersections(raycaster, intersects, rayLocalSpace) {
+    _computeIntersections(raycaster, intersects2, rayLocalSpace) {
       let intersection;
       const geometry = this.geometry;
       const material = this.material;
@@ -11433,7 +11433,7 @@
               if (intersection) {
                 intersection.faceIndex = Math.floor(j / 3);
                 intersection.face.materialIndex = group.materialIndex;
-                intersects.push(intersection);
+                intersects2.push(intersection);
               }
             }
           }
@@ -11447,7 +11447,7 @@
             intersection = checkGeometryIntersection(this, material, raycaster, rayLocalSpace, uv, uv1, normal, a, b, c);
             if (intersection) {
               intersection.faceIndex = Math.floor(i / 3);
-              intersects.push(intersection);
+              intersects2.push(intersection);
             }
           }
         }
@@ -11466,7 +11466,7 @@
               if (intersection) {
                 intersection.faceIndex = Math.floor(j / 3);
                 intersection.face.materialIndex = group.materialIndex;
-                intersects.push(intersection);
+                intersects2.push(intersection);
               }
             }
           }
@@ -11480,7 +11480,7 @@
             intersection = checkGeometryIntersection(this, material, raycaster, rayLocalSpace, uv, uv1, normal, a, b, c);
             if (intersection) {
               intersection.faceIndex = Math.floor(i / 3);
-              intersects.push(intersection);
+              intersects2.push(intersection);
             }
           }
         }
@@ -13202,7 +13202,7 @@
      * @param {Raycaster} raycaster - The raycaster.
      * @param {Array<Object>} intersects - The target array that holds the intersection points.
      */
-    raycast(raycaster, intersects) {
+    raycast(raycaster, intersects2) {
       const geometry = this.geometry;
       const matrixWorld = this.matrixWorld;
       const threshold = raycaster.params.Line.threshold;
@@ -13228,7 +13228,7 @@
           const b = index.getX(i + 1);
           const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b, i);
           if (intersect) {
-            intersects.push(intersect);
+            intersects2.push(intersect);
           }
         }
         if (this.isLineLoop) {
@@ -13236,7 +13236,7 @@
           const b = index.getX(start2);
           const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, a, b, end - 1);
           if (intersect) {
-            intersects.push(intersect);
+            intersects2.push(intersect);
           }
         }
       } else {
@@ -13245,13 +13245,13 @@
         for (let i = start2, l = end - 1; i < l; i += step) {
           const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, i, i + 1, i);
           if (intersect) {
-            intersects.push(intersect);
+            intersects2.push(intersect);
           }
         }
         if (this.isLineLoop) {
           const intersect = checkIntersection(this, raycaster, _ray$1, localThresholdSq, end - 1, start2, end - 1);
           if (intersect) {
-            intersects.push(intersect);
+            intersects2.push(intersect);
           }
         }
       }
@@ -13638,10 +13638,10 @@
         const vertex2 = new Vector3();
         let groupCount = 0;
         const radius = top === true ? radiusTop : radiusBottom;
-        const sign = top === true ? 1 : -1;
+        const sign2 = top === true ? 1 : -1;
         for (let x = 1; x <= radialSegments; x++) {
-          vertices.push(0, halfHeight * sign, 0);
-          normals.push(0, sign, 0);
+          vertices.push(0, halfHeight * sign2, 0);
+          normals.push(0, sign2, 0);
           uvs.push(0.5, 0.5);
           index++;
         }
@@ -13652,12 +13652,12 @@
           const cosTheta = Math.cos(theta);
           const sinTheta = Math.sin(theta);
           vertex2.x = radius * sinTheta;
-          vertex2.y = halfHeight * sign;
+          vertex2.y = halfHeight * sign2;
           vertex2.z = radius * cosTheta;
           vertices.push(vertex2.x, vertex2.y, vertex2.z);
-          normals.push(0, sign, 0);
+          normals.push(0, sign2, 0);
           uv.x = cosTheta * 0.5 + 0.5;
-          uv.y = sinTheta * 0.5 * sign + 0.5;
+          uv.y = sinTheta * 0.5 * sign2 + 0.5;
           uvs.push(uv.x, uv.y);
           index++;
         }
@@ -15130,6 +15130,927 @@
     QuadraticBezierCurve3,
     SplineCurve
   });
+  var CurvePath = class extends Curve {
+    /**
+     * Constructs a new curve path.
+     */
+    constructor() {
+      super();
+      this.type = "CurvePath";
+      this.curves = [];
+      this.autoClose = false;
+    }
+    /**
+     * Adds a curve to this curve path.
+     *
+     * @param {Curve} curve - The curve to add.
+     */
+    add(curve) {
+      this.curves.push(curve);
+    }
+    /**
+     * Adds a line curve to close the path.
+     *
+     * @return {CurvePath} A reference to this curve path.
+     */
+    closePath() {
+      const startPoint = this.curves[0].getPoint(0);
+      const endPoint = this.curves[this.curves.length - 1].getPoint(1);
+      if (!startPoint.equals(endPoint)) {
+        const lineType = startPoint.isVector2 === true ? "LineCurve" : "LineCurve3";
+        this.curves.push(new Curves[lineType](endPoint, startPoint));
+      }
+      return this;
+    }
+    /**
+     * This method returns a vector in 2D or 3D space (depending on the curve definitions)
+     * for the given interpolation factor.
+     *
+     * @param {number} t - A interpolation factor representing a position on the curve. Must be in the range `[0,1]`.
+     * @param {(Vector2|Vector3)} [optionalTarget] - The optional target vector the result is written to.
+     * @return {?(Vector2|Vector3)} The position on the curve. It can be a 2D or 3D vector depending on the curve definition.
+     */
+    getPoint(t, optionalTarget) {
+      const d = t * this.getLength();
+      const curveLengths = this.getCurveLengths();
+      let i = 0;
+      while (i < curveLengths.length) {
+        if (curveLengths[i] >= d) {
+          const diff = curveLengths[i] - d;
+          const curve = this.curves[i];
+          const segmentLength = curve.getLength();
+          const u = segmentLength === 0 ? 0 : 1 - diff / segmentLength;
+          return curve.getPointAt(u, optionalTarget);
+        }
+        i++;
+      }
+      return null;
+    }
+    getLength() {
+      const lens = this.getCurveLengths();
+      return lens[lens.length - 1];
+    }
+    updateArcLengths() {
+      this.needsUpdate = true;
+      this.cacheLengths = null;
+      this.getCurveLengths();
+    }
+    /**
+     * Returns list of cumulative curve lengths of the defined curves.
+     *
+     * @return {Array<number>} The curve lengths.
+     */
+    getCurveLengths() {
+      if (this.cacheLengths && this.cacheLengths.length === this.curves.length) {
+        return this.cacheLengths;
+      }
+      const lengths = [];
+      let sums = 0;
+      for (let i = 0, l = this.curves.length; i < l; i++) {
+        sums += this.curves[i].getLength();
+        lengths.push(sums);
+      }
+      this.cacheLengths = lengths;
+      return lengths;
+    }
+    getSpacedPoints(divisions = 40) {
+      const points = [];
+      for (let i = 0; i <= divisions; i++) {
+        points.push(this.getPoint(i / divisions));
+      }
+      if (this.autoClose) {
+        points.push(points[0]);
+      }
+      return points;
+    }
+    getPoints(divisions = 12) {
+      const points = [];
+      let last2;
+      for (let i = 0, curves = this.curves; i < curves.length; i++) {
+        const curve = curves[i];
+        const resolution = curve.isEllipseCurve ? divisions * 2 : curve.isLineCurve || curve.isLineCurve3 ? 1 : curve.isSplineCurve ? divisions * curve.points.length : divisions;
+        const pts = curve.getPoints(resolution);
+        for (let j = 0; j < pts.length; j++) {
+          const point = pts[j];
+          if (last2 && last2.equals(point)) continue;
+          points.push(point);
+          last2 = point;
+        }
+      }
+      if (this.autoClose && points.length > 1 && !points[points.length - 1].equals(points[0])) {
+        points.push(points[0]);
+      }
+      return points;
+    }
+    copy(source) {
+      super.copy(source);
+      this.curves = [];
+      for (let i = 0, l = source.curves.length; i < l; i++) {
+        const curve = source.curves[i];
+        this.curves.push(curve.clone());
+      }
+      this.autoClose = source.autoClose;
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.autoClose = this.autoClose;
+      data.curves = [];
+      for (let i = 0, l = this.curves.length; i < l; i++) {
+        const curve = this.curves[i];
+        data.curves.push(curve.toJSON());
+      }
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.autoClose = json.autoClose;
+      this.curves = [];
+      for (let i = 0, l = json.curves.length; i < l; i++) {
+        const curve = json.curves[i];
+        this.curves.push(new Curves[curve.type]().fromJSON(curve));
+      }
+      return this;
+    }
+  };
+  var Path = class extends CurvePath {
+    /**
+     * Constructs a new path.
+     *
+     * @param {Array<Vector2>} [points] - An array of 2D points defining the path.
+     */
+    constructor(points) {
+      super();
+      this.type = "Path";
+      this.currentPoint = new Vector2();
+      if (points) {
+        this.setFromPoints(points);
+      }
+    }
+    /**
+     * Creates a path from the given list of points. The points are added
+     * to the path as instances of {@link LineCurve}.
+     *
+     * @param {Array<Vector2>} points - An array of 2D points.
+     * @return {Path} A reference to this path.
+     */
+    setFromPoints(points) {
+      this.moveTo(points[0].x, points[0].y);
+      for (let i = 1, l = points.length; i < l; i++) {
+        this.lineTo(points[i].x, points[i].y);
+      }
+      return this;
+    }
+    /**
+     * Moves {@link Path#currentPoint} to the given point.
+     *
+     * @param {number} x - The x coordinate.
+     * @param {number} y - The y coordinate.
+     * @return {Path} A reference to this path.
+     */
+    moveTo(x, y) {
+      this.currentPoint.set(x, y);
+      return this;
+    }
+    /**
+     * Adds an instance of {@link LineCurve} to the path by connecting
+     * the current point with the given one.
+     *
+     * @param {number} x - The x coordinate of the end point.
+     * @param {number} y - The y coordinate of the end point.
+     * @return {Path} A reference to this path.
+     */
+    lineTo(x, y) {
+      const curve = new LineCurve(this.currentPoint.clone(), new Vector2(x, y));
+      this.curves.push(curve);
+      this.currentPoint.set(x, y);
+      return this;
+    }
+    /**
+     * Adds an instance of {@link QuadraticBezierCurve} to the path by connecting
+     * the current point with the given one.
+     *
+     * @param {number} aCPx - The x coordinate of the control point.
+     * @param {number} aCPy - The y coordinate of the control point.
+     * @param {number} aX - The x coordinate of the end point.
+     * @param {number} aY - The y coordinate of the end point.
+     * @return {Path} A reference to this path.
+     */
+    quadraticCurveTo(aCPx, aCPy, aX, aY) {
+      const curve = new QuadraticBezierCurve(
+        this.currentPoint.clone(),
+        new Vector2(aCPx, aCPy),
+        new Vector2(aX, aY)
+      );
+      this.curves.push(curve);
+      this.currentPoint.set(aX, aY);
+      return this;
+    }
+    /**
+     * Adds an instance of {@link CubicBezierCurve} to the path by connecting
+     * the current point with the given one.
+     *
+     * @param {number} aCP1x - The x coordinate of the first control point.
+     * @param {number} aCP1y - The y coordinate of the first control point.
+     * @param {number} aCP2x - The x coordinate of the second control point.
+     * @param {number} aCP2y - The y coordinate of the second control point.
+     * @param {number} aX - The x coordinate of the end point.
+     * @param {number} aY - The y coordinate of the end point.
+     * @return {Path} A reference to this path.
+     */
+    bezierCurveTo(aCP1x, aCP1y, aCP2x, aCP2y, aX, aY) {
+      const curve = new CubicBezierCurve(
+        this.currentPoint.clone(),
+        new Vector2(aCP1x, aCP1y),
+        new Vector2(aCP2x, aCP2y),
+        new Vector2(aX, aY)
+      );
+      this.curves.push(curve);
+      this.currentPoint.set(aX, aY);
+      return this;
+    }
+    /**
+     * Adds an instance of {@link SplineCurve} to the path by connecting
+     * the current point with the given list of points.
+     *
+     * @param {Array<Vector2>} pts - An array of points in 2D space.
+     * @return {Path} A reference to this path.
+     */
+    splineThru(pts) {
+      const npts = [this.currentPoint.clone()].concat(pts);
+      const curve = new SplineCurve(npts);
+      this.curves.push(curve);
+      this.currentPoint.copy(pts[pts.length - 1]);
+      return this;
+    }
+    /**
+     * Adds an arc as an instance of {@link EllipseCurve} to the path, positioned relative
+     * to the current point.
+     *
+     * @param {number} [aX=0] - The x coordinate of the center of the arc offsetted from the previous curve.
+     * @param {number} [aY=0] - The y coordinate of the center of the arc offsetted from the previous curve.
+     * @param {number} [aRadius=1] - The radius of the arc.
+     * @param {number} [aStartAngle=0] - The start angle in radians.
+     * @param {number} [aEndAngle=Math.PI*2] - The end angle in radians.
+     * @param {boolean} [aClockwise=false] - Whether to sweep the arc clockwise or not.
+     * @return {Path} A reference to this path.
+     */
+    arc(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) {
+      const x0 = this.currentPoint.x;
+      const y0 = this.currentPoint.y;
+      this.absarc(
+        aX + x0,
+        aY + y0,
+        aRadius,
+        aStartAngle,
+        aEndAngle,
+        aClockwise
+      );
+      return this;
+    }
+    /**
+     * Adds an absolutely positioned arc as an instance of {@link EllipseCurve} to the path.
+     *
+     * @param {number} [aX=0] - The x coordinate of the center of the arc.
+     * @param {number} [aY=0] - The y coordinate of the center of the arc.
+     * @param {number} [aRadius=1] - The radius of the arc.
+     * @param {number} [aStartAngle=0] - The start angle in radians.
+     * @param {number} [aEndAngle=Math.PI*2] - The end angle in radians.
+     * @param {boolean} [aClockwise=false] - Whether to sweep the arc clockwise or not.
+     * @return {Path} A reference to this path.
+     */
+    absarc(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) {
+      this.absellipse(aX, aY, aRadius, aRadius, aStartAngle, aEndAngle, aClockwise);
+      return this;
+    }
+    /**
+     * Adds an ellipse as an instance of {@link EllipseCurve} to the path, positioned relative
+     * to the current point
+     *
+     * @param {number} [aX=0] - The x coordinate of the center of the ellipse offsetted from the previous curve.
+     * @param {number} [aY=0] - The y coordinate of the center of the ellipse offsetted from the previous curve.
+     * @param {number} [xRadius=1] - The radius of the ellipse in the x axis.
+     * @param {number} [yRadius=1] - The radius of the ellipse in the y axis.
+     * @param {number} [aStartAngle=0] - The start angle in radians.
+     * @param {number} [aEndAngle=Math.PI*2] - The end angle in radians.
+     * @param {boolean} [aClockwise=false] - Whether to sweep the ellipse clockwise or not.
+     * @param {number} [aRotation=0] - The rotation angle of the ellipse in radians, counterclockwise from the positive X axis.
+     * @return {Path} A reference to this path.
+     */
+    ellipse(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation) {
+      const x0 = this.currentPoint.x;
+      const y0 = this.currentPoint.y;
+      this.absellipse(aX + x0, aY + y0, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation);
+      return this;
+    }
+    /**
+     * Adds an absolutely positioned ellipse as an instance of {@link EllipseCurve} to the path.
+     *
+     * @param {number} [aX=0] - The x coordinate of the absolute center of the ellipse.
+     * @param {number} [aY=0] - The y coordinate of the absolute center of the ellipse.
+     * @param {number} [xRadius=1] - The radius of the ellipse in the x axis.
+     * @param {number} [yRadius=1] - The radius of the ellipse in the y axis.
+     * @param {number} [aStartAngle=0] - The start angle in radians.
+     * @param {number} [aEndAngle=Math.PI*2] - The end angle in radians.
+     * @param {boolean} [aClockwise=false] - Whether to sweep the ellipse clockwise or not.
+     * @param {number} [aRotation=0] - The rotation angle of the ellipse in radians, counterclockwise from the positive X axis.
+     * @return {Path} A reference to this path.
+     */
+    absellipse(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation) {
+      const curve = new EllipseCurve(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation);
+      if (this.curves.length > 0) {
+        const firstPoint = curve.getPoint(0);
+        if (!firstPoint.equals(this.currentPoint)) {
+          this.lineTo(firstPoint.x, firstPoint.y);
+        }
+      }
+      this.curves.push(curve);
+      const lastPoint = curve.getPoint(1);
+      this.currentPoint.copy(lastPoint);
+      return this;
+    }
+    copy(source) {
+      super.copy(source);
+      this.currentPoint.copy(source.currentPoint);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.currentPoint = this.currentPoint.toArray();
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.currentPoint.fromArray(json.currentPoint);
+      return this;
+    }
+  };
+  var Shape = class extends Path {
+    /**
+     * Constructs a new shape.
+     *
+     * @param {Array<Vector2>} [points] - An array of 2D points defining the shape.
+     */
+    constructor(points) {
+      super(points);
+      this.uuid = generateUUID();
+      this.type = "Shape";
+      this.holes = [];
+    }
+    /**
+     * Returns an array representing each contour of the holes
+     * as a list of 2D points.
+     *
+     * @param {number} divisions - The fineness of the result.
+     * @return {Array<Array<Vector2>>} The holes as a series of 2D points.
+     */
+    getPointsHoles(divisions) {
+      const holesPts = [];
+      for (let i = 0, l = this.holes.length; i < l; i++) {
+        holesPts[i] = this.holes[i].getPoints(divisions);
+      }
+      return holesPts;
+    }
+    // get points of shape and holes (keypoints based on segments parameter)
+    /**
+     * Returns an object that holds contour data for the shape and its holes as
+     * arrays of 2D points.
+     *
+     * @param {number} divisions - The fineness of the result.
+     * @return {{shape:Array<Vector2>,holes:Array<Array<Vector2>>}} An object with contour data.
+     */
+    extractPoints(divisions) {
+      return {
+        shape: this.getPoints(divisions),
+        holes: this.getPointsHoles(divisions)
+      };
+    }
+    copy(source) {
+      super.copy(source);
+      this.holes = [];
+      for (let i = 0, l = source.holes.length; i < l; i++) {
+        const hole = source.holes[i];
+        this.holes.push(hole.clone());
+      }
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      data.uuid = this.uuid;
+      data.holes = [];
+      for (let i = 0, l = this.holes.length; i < l; i++) {
+        const hole = this.holes[i];
+        data.holes.push(hole.toJSON());
+      }
+      return data;
+    }
+    fromJSON(json) {
+      super.fromJSON(json);
+      this.uuid = json.uuid;
+      this.holes = [];
+      for (let i = 0, l = json.holes.length; i < l; i++) {
+        const hole = json.holes[i];
+        this.holes.push(new Path().fromJSON(hole));
+      }
+      return this;
+    }
+  };
+  function earcut(data, holeIndices, dim = 2) {
+    const hasHoles = holeIndices && holeIndices.length;
+    const outerLen = hasHoles ? holeIndices[0] * dim : data.length;
+    let outerNode = linkedList(data, 0, outerLen, dim, true);
+    const triangles = [];
+    if (!outerNode || outerNode.next === outerNode.prev) return triangles;
+    let minX, minY, invSize;
+    if (hasHoles) outerNode = eliminateHoles(data, holeIndices, outerNode, dim);
+    if (data.length > 80 * dim) {
+      minX = Infinity;
+      minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (let i = dim; i < outerLen; i += dim) {
+        const x = data[i];
+        const y = data[i + 1];
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+      invSize = Math.max(maxX - minX, maxY - minY);
+      invSize = invSize !== 0 ? 32767 / invSize : 0;
+    }
+    earcutLinked(outerNode, triangles, dim, minX, minY, invSize, 0);
+    return triangles;
+  }
+  function linkedList(data, start2, end, dim, clockwise) {
+    let last2;
+    if (clockwise === signedArea(data, start2, end, dim) > 0) {
+      for (let i = start2; i < end; i += dim) last2 = insertNode(i / dim | 0, data[i], data[i + 1], last2);
+    } else {
+      for (let i = end - dim; i >= start2; i -= dim) last2 = insertNode(i / dim | 0, data[i], data[i + 1], last2);
+    }
+    if (last2 && equals(last2, last2.next)) {
+      removeNode(last2);
+      last2 = last2.next;
+    }
+    return last2;
+  }
+  function filterPoints(start2, end) {
+    if (!start2) return start2;
+    if (!end) end = start2;
+    let p = start2, again;
+    do {
+      again = false;
+      if (!p.steiner && (equals(p, p.next) || area(p.prev, p, p.next) === 0)) {
+        removeNode(p);
+        p = end = p.prev;
+        if (p === p.next) break;
+        again = true;
+      } else {
+        p = p.next;
+      }
+    } while (again || p !== end);
+    return end;
+  }
+  function earcutLinked(ear, triangles, dim, minX, minY, invSize, pass) {
+    if (!ear) return;
+    if (!pass && invSize) indexCurve(ear, minX, minY, invSize);
+    let stop = ear;
+    while (ear.prev !== ear.next) {
+      const prev = ear.prev;
+      const next = ear.next;
+      if (invSize ? isEarHashed(ear, minX, minY, invSize) : isEar(ear)) {
+        triangles.push(prev.i, ear.i, next.i);
+        removeNode(ear);
+        ear = next.next;
+        stop = next.next;
+        continue;
+      }
+      ear = next;
+      if (ear === stop) {
+        if (!pass) {
+          earcutLinked(filterPoints(ear), triangles, dim, minX, minY, invSize, 1);
+        } else if (pass === 1) {
+          ear = cureLocalIntersections(filterPoints(ear), triangles);
+          earcutLinked(ear, triangles, dim, minX, minY, invSize, 2);
+        } else if (pass === 2) {
+          splitEarcut(ear, triangles, dim, minX, minY, invSize);
+        }
+        break;
+      }
+    }
+  }
+  function isEar(ear) {
+    const a = ear.prev, b = ear, c = ear.next;
+    if (area(a, b, c) >= 0) return false;
+    const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
+    const x0 = Math.min(ax, bx, cx), y0 = Math.min(ay, by, cy), x1 = Math.max(ax, bx, cx), y1 = Math.max(ay, by, cy);
+    let p = c.next;
+    while (p !== a) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.next;
+    }
+    return true;
+  }
+  function isEarHashed(ear, minX, minY, invSize) {
+    const a = ear.prev, b = ear, c = ear.next;
+    if (area(a, b, c) >= 0) return false;
+    const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
+    const x0 = Math.min(ax, bx, cx), y0 = Math.min(ay, by, cy), x1 = Math.max(ax, bx, cx), y1 = Math.max(ay, by, cy);
+    const minZ = zOrder(x0, y0, minX, minY, invSize), maxZ = zOrder(x1, y1, minX, minY, invSize);
+    let p = ear.prevZ, n = ear.nextZ;
+    while (p && p.z >= minZ && n && n.z <= maxZ) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.prevZ;
+      if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, n.x, n.y) && area(n.prev, n, n.next) >= 0) return false;
+      n = n.nextZ;
+    }
+    while (p && p.z >= minZ) {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0) return false;
+      p = p.prevZ;
+    }
+    while (n && n.z <= maxZ) {
+      if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c && pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, n.x, n.y) && area(n.prev, n, n.next) >= 0) return false;
+      n = n.nextZ;
+    }
+    return true;
+  }
+  function cureLocalIntersections(start2, triangles) {
+    let p = start2;
+    do {
+      const a = p.prev, b = p.next.next;
+      if (!equals(a, b) && intersects(a, p, p.next, b) && locallyInside(a, b) && locallyInside(b, a)) {
+        triangles.push(a.i, p.i, b.i);
+        removeNode(p);
+        removeNode(p.next);
+        p = start2 = b;
+      }
+      p = p.next;
+    } while (p !== start2);
+    return filterPoints(p);
+  }
+  function splitEarcut(start2, triangles, dim, minX, minY, invSize) {
+    let a = start2;
+    do {
+      let b = a.next.next;
+      while (b !== a.prev) {
+        if (a.i !== b.i && isValidDiagonal(a, b)) {
+          let c = splitPolygon(a, b);
+          a = filterPoints(a, a.next);
+          c = filterPoints(c, c.next);
+          earcutLinked(a, triangles, dim, minX, minY, invSize, 0);
+          earcutLinked(c, triangles, dim, minX, minY, invSize, 0);
+          return;
+        }
+        b = b.next;
+      }
+      a = a.next;
+    } while (a !== start2);
+  }
+  function eliminateHoles(data, holeIndices, outerNode, dim) {
+    const queue = [];
+    for (let i = 0, len = holeIndices.length; i < len; i++) {
+      const start2 = holeIndices[i] * dim;
+      const end = i < len - 1 ? holeIndices[i + 1] * dim : data.length;
+      const list = linkedList(data, start2, end, dim, false);
+      if (list === list.next) list.steiner = true;
+      queue.push(getLeftmost(list));
+    }
+    queue.sort(compareXYSlope);
+    for (let i = 0; i < queue.length; i++) {
+      outerNode = eliminateHole(queue[i], outerNode);
+    }
+    return outerNode;
+  }
+  function compareXYSlope(a, b) {
+    let result = a.x - b.x;
+    if (result === 0) {
+      result = a.y - b.y;
+      if (result === 0) {
+        const aSlope = (a.next.y - a.y) / (a.next.x - a.x);
+        const bSlope = (b.next.y - b.y) / (b.next.x - b.x);
+        result = aSlope - bSlope;
+      }
+    }
+    return result;
+  }
+  function eliminateHole(hole, outerNode) {
+    const bridge = findHoleBridge(hole, outerNode);
+    if (!bridge) {
+      return outerNode;
+    }
+    const bridgeReverse = splitPolygon(bridge, hole);
+    filterPoints(bridgeReverse, bridgeReverse.next);
+    return filterPoints(bridge, bridge.next);
+  }
+  function findHoleBridge(hole, outerNode) {
+    let p = outerNode;
+    const hx = hole.x;
+    const hy = hole.y;
+    let qx = -Infinity;
+    let m;
+    if (equals(hole, p)) return p;
+    do {
+      if (equals(hole, p.next)) return p.next;
+      else if (hy <= p.y && hy >= p.next.y && p.next.y !== p.y) {
+        const x = p.x + (hy - p.y) * (p.next.x - p.x) / (p.next.y - p.y);
+        if (x <= hx && x > qx) {
+          qx = x;
+          m = p.x < p.next.x ? p : p.next;
+          if (x === hx) return m;
+        }
+      }
+      p = p.next;
+    } while (p !== outerNode);
+    if (!m) return null;
+    const stop = m;
+    const mx = m.x;
+    const my = m.y;
+    let tanMin = Infinity;
+    p = m;
+    do {
+      if (hx >= p.x && p.x >= mx && hx !== p.x && pointInTriangle(hy < my ? hx : qx, hy, mx, my, hy < my ? qx : hx, hy, p.x, p.y)) {
+        const tan = Math.abs(hy - p.y) / (hx - p.x);
+        if (locallyInside(p, hole) && (tan < tanMin || tan === tanMin && (p.x > m.x || p.x === m.x && sectorContainsSector(m, p)))) {
+          m = p;
+          tanMin = tan;
+        }
+      }
+      p = p.next;
+    } while (p !== stop);
+    return m;
+  }
+  function sectorContainsSector(m, p) {
+    return area(m.prev, m, p.prev) < 0 && area(p.next, m, m.next) < 0;
+  }
+  function indexCurve(start2, minX, minY, invSize) {
+    let p = start2;
+    do {
+      if (p.z === 0) p.z = zOrder(p.x, p.y, minX, minY, invSize);
+      p.prevZ = p.prev;
+      p.nextZ = p.next;
+      p = p.next;
+    } while (p !== start2);
+    p.prevZ.nextZ = null;
+    p.prevZ = null;
+    sortLinked(p);
+  }
+  function sortLinked(list) {
+    let numMerges;
+    let inSize = 1;
+    do {
+      let p = list;
+      let e;
+      list = null;
+      let tail2 = null;
+      numMerges = 0;
+      while (p) {
+        numMerges++;
+        let q = p;
+        let pSize = 0;
+        for (let i = 0; i < inSize; i++) {
+          pSize++;
+          q = q.nextZ;
+          if (!q) break;
+        }
+        let qSize = inSize;
+        while (pSize > 0 || qSize > 0 && q) {
+          if (pSize !== 0 && (qSize === 0 || !q || p.z <= q.z)) {
+            e = p;
+            p = p.nextZ;
+            pSize--;
+          } else {
+            e = q;
+            q = q.nextZ;
+            qSize--;
+          }
+          if (tail2) tail2.nextZ = e;
+          else list = e;
+          e.prevZ = tail2;
+          tail2 = e;
+        }
+        p = q;
+      }
+      tail2.nextZ = null;
+      inSize *= 2;
+    } while (numMerges > 1);
+    return list;
+  }
+  function zOrder(x, y, minX, minY, invSize) {
+    x = (x - minX) * invSize | 0;
+    y = (y - minY) * invSize | 0;
+    x = (x | x << 8) & 16711935;
+    x = (x | x << 4) & 252645135;
+    x = (x | x << 2) & 858993459;
+    x = (x | x << 1) & 1431655765;
+    y = (y | y << 8) & 16711935;
+    y = (y | y << 4) & 252645135;
+    y = (y | y << 2) & 858993459;
+    y = (y | y << 1) & 1431655765;
+    return x | y << 1;
+  }
+  function getLeftmost(start2) {
+    let p = start2, leftmost = start2;
+    do {
+      if (p.x < leftmost.x || p.x === leftmost.x && p.y < leftmost.y) leftmost = p;
+      p = p.next;
+    } while (p !== start2);
+    return leftmost;
+  }
+  function pointInTriangle(ax, ay, bx, by, cx, cy, px2, py2) {
+    return (cx - px2) * (ay - py2) >= (ax - px2) * (cy - py2) && (ax - px2) * (by - py2) >= (bx - px2) * (ay - py2) && (bx - px2) * (cy - py2) >= (cx - px2) * (by - py2);
+  }
+  function pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, px2, py2) {
+    return !(ax === px2 && ay === py2) && pointInTriangle(ax, ay, bx, by, cx, cy, px2, py2);
+  }
+  function isValidDiagonal(a, b) {
+    return a.next.i !== b.i && a.prev.i !== b.i && !intersectsPolygon(a, b) && // dones't intersect other edges
+    (locallyInside(a, b) && locallyInside(b, a) && middleInside(a, b) && // locally visible
+    (area(a.prev, a, b.prev) || area(a, b.prev, b)) || // does not create opposite-facing sectors
+    equals(a, b) && area(a.prev, a, a.next) > 0 && area(b.prev, b, b.next) > 0);
+  }
+  function area(p, q, r) {
+    return (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+  }
+  function equals(p1, p2) {
+    return p1.x === p2.x && p1.y === p2.y;
+  }
+  function intersects(p1, q1, p2, q2) {
+    const o1 = sign(area(p1, q1, p2));
+    const o2 = sign(area(p1, q1, q2));
+    const o3 = sign(area(p2, q2, p1));
+    const o4 = sign(area(p2, q2, q1));
+    if (o1 !== o2 && o3 !== o4) return true;
+    if (o1 === 0 && onSegment(p1, p2, q1)) return true;
+    if (o2 === 0 && onSegment(p1, q2, q1)) return true;
+    if (o3 === 0 && onSegment(p2, p1, q2)) return true;
+    if (o4 === 0 && onSegment(p2, q1, q2)) return true;
+    return false;
+  }
+  function onSegment(p, q, r) {
+    return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) && q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y);
+  }
+  function sign(num) {
+    return num > 0 ? 1 : num < 0 ? -1 : 0;
+  }
+  function intersectsPolygon(a, b) {
+    let p = a;
+    do {
+      if (p.i !== a.i && p.next.i !== a.i && p.i !== b.i && p.next.i !== b.i && intersects(p, p.next, a, b)) return true;
+      p = p.next;
+    } while (p !== a);
+    return false;
+  }
+  function locallyInside(a, b) {
+    return area(a.prev, a, a.next) < 0 ? area(a, b, a.next) >= 0 && area(a, a.prev, b) >= 0 : area(a, b, a.prev) < 0 || area(a, a.next, b) < 0;
+  }
+  function middleInside(a, b) {
+    let p = a;
+    let inside = false;
+    const px2 = (a.x + b.x) / 2;
+    const py2 = (a.y + b.y) / 2;
+    do {
+      if (p.y > py2 !== p.next.y > py2 && p.next.y !== p.y && px2 < (p.next.x - p.x) * (py2 - p.y) / (p.next.y - p.y) + p.x)
+        inside = !inside;
+      p = p.next;
+    } while (p !== a);
+    return inside;
+  }
+  function splitPolygon(a, b) {
+    const a2 = createNode(a.i, a.x, a.y), b2 = createNode(b.i, b.x, b.y), an = a.next, bp = b.prev;
+    a.next = b;
+    b.prev = a;
+    a2.next = an;
+    an.prev = a2;
+    b2.next = a2;
+    a2.prev = b2;
+    bp.next = b2;
+    b2.prev = bp;
+    return b2;
+  }
+  function insertNode(i, x, y, last2) {
+    const p = createNode(i, x, y);
+    if (!last2) {
+      p.prev = p;
+      p.next = p;
+    } else {
+      p.next = last2.next;
+      p.prev = last2;
+      last2.next.prev = p;
+      last2.next = p;
+    }
+    return p;
+  }
+  function removeNode(p) {
+    p.next.prev = p.prev;
+    p.prev.next = p.next;
+    if (p.prevZ) p.prevZ.nextZ = p.nextZ;
+    if (p.nextZ) p.nextZ.prevZ = p.prevZ;
+  }
+  function createNode(i, x, y) {
+    return {
+      i,
+      // vertex index in coordinates array
+      x,
+      y,
+      // vertex coordinates
+      prev: null,
+      // previous and next vertex nodes in a polygon ring
+      next: null,
+      z: 0,
+      // z-order curve value
+      prevZ: null,
+      // previous and next nodes in z-order
+      nextZ: null,
+      steiner: false
+      // indicates whether this is a steiner point
+    };
+  }
+  function signedArea(data, start2, end, dim) {
+    let sum = 0;
+    for (let i = start2, j = end - dim; i < end; i += dim) {
+      sum += (data[j] - data[i]) * (data[i + 1] + data[j + 1]);
+      j = i;
+    }
+    return sum;
+  }
+  var Earcut = class {
+    /**
+     * Triangulates the given shape definition by returning an array of triangles.
+     *
+     * @param {Array<number>} data - An array with 2D points.
+     * @param {Array<number>} holeIndices - An array with indices defining holes.
+     * @param {number} [dim=2] - The number of coordinates per vertex in the input array.
+     * @return {Array<number>} An array representing the triangulated faces. Each face is defined by three consecutive numbers
+     * representing vertex indices.
+     */
+    static triangulate(data, holeIndices, dim = 2) {
+      return earcut(data, holeIndices, dim);
+    }
+  };
+  var ShapeUtils = class _ShapeUtils {
+    /**
+     * Calculate area of a ( 2D ) contour polygon.
+     *
+     * @param {Array<Vector2>} contour - An array of 2D points.
+     * @return {number} The area.
+     */
+    static area(contour) {
+      const n = contour.length;
+      let a = 0;
+      for (let p = n - 1, q = 0; q < n; p = q++) {
+        a += contour[p].x * contour[q].y - contour[q].x * contour[p].y;
+      }
+      return a * 0.5;
+    }
+    /**
+     * Returns `true` if the given contour uses a clockwise winding order.
+     *
+     * @param {Array<Vector2>} pts - An array of 2D points defining a polygon.
+     * @return {boolean} Whether the given contour uses a clockwise winding order or not.
+     */
+    static isClockWise(pts) {
+      return _ShapeUtils.area(pts) < 0;
+    }
+    /**
+     * Triangulates the given shape definition.
+     *
+     * @param {Array<Vector2>} contour - An array of 2D points defining the contour.
+     * @param {Array<Array<Vector2>>} holes - An array that holds arrays of 2D points defining the holes.
+     * @return {Array<Array<number>>} An array that holds for each face definition an array with three indices.
+     */
+    static triangulateShape(contour, holes) {
+      const vertices = [];
+      const holeIndices = [];
+      const faces = [];
+      removeDupEndPts(contour);
+      addContour(vertices, contour);
+      let holeIndex = contour.length;
+      holes.forEach(removeDupEndPts);
+      for (let i = 0; i < holes.length; i++) {
+        holeIndices.push(holeIndex);
+        holeIndex += holes[i].length;
+        addContour(vertices, holes[i]);
+      }
+      const triangles = Earcut.triangulate(vertices, holeIndices);
+      for (let i = 0; i < triangles.length; i += 3) {
+        faces.push(triangles.slice(i, i + 3));
+      }
+      return faces;
+    }
+  };
+  function removeDupEndPts(points) {
+    const l = points.length;
+    if (l > 2 && points[l - 1].equals(points[0])) {
+      points.pop();
+    }
+  }
+  function addContour(vertices, contour) {
+    for (let i = 0; i < contour.length; i++) {
+      vertices.push(contour[i].x);
+      vertices.push(contour[i].y);
+    }
+  }
   var IcosahedronGeometry = class _IcosahedronGeometry extends PolyhedronGeometry {
     /**
      * Constructs a new icosahedron geometry.
@@ -15406,6 +16327,114 @@
       return new _RingGeometry(data.innerRadius, data.outerRadius, data.thetaSegments, data.phiSegments, data.thetaStart, data.thetaLength);
     }
   };
+  var ShapeGeometry = class _ShapeGeometry extends BufferGeometry {
+    /**
+     * Constructs a new shape geometry.
+     *
+     * @param {Shape|Array<Shape>} [shapes] - A shape or an array of shapes.
+     * @param {number} [curveSegments=12] - Number of segments per shape.
+     */
+    constructor(shapes = new Shape([new Vector2(0, 0.5), new Vector2(-0.5, -0.5), new Vector2(0.5, -0.5)]), curveSegments = 12) {
+      super();
+      this.type = "ShapeGeometry";
+      this.parameters = {
+        shapes,
+        curveSegments
+      };
+      const indices = [];
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      let groupStart = 0;
+      let groupCount = 0;
+      if (Array.isArray(shapes) === false) {
+        addShape(shapes);
+      } else {
+        for (let i = 0; i < shapes.length; i++) {
+          addShape(shapes[i]);
+          this.addGroup(groupStart, groupCount, i);
+          groupStart += groupCount;
+          groupCount = 0;
+        }
+      }
+      this.setIndex(indices);
+      this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+      this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+      function addShape(shape) {
+        const indexOffset = vertices.length / 3;
+        const points = shape.extractPoints(curveSegments);
+        let shapeVertices = points.shape;
+        const shapeHoles = points.holes;
+        if (ShapeUtils.isClockWise(shapeVertices) === false) {
+          shapeVertices = shapeVertices.reverse();
+        }
+        for (let i = 0, l = shapeHoles.length; i < l; i++) {
+          const shapeHole = shapeHoles[i];
+          if (ShapeUtils.isClockWise(shapeHole) === true) {
+            shapeHoles[i] = shapeHole.reverse();
+          }
+        }
+        const faces = ShapeUtils.triangulateShape(shapeVertices, shapeHoles);
+        for (let i = 0, l = shapeHoles.length; i < l; i++) {
+          const shapeHole = shapeHoles[i];
+          shapeVertices = shapeVertices.concat(shapeHole);
+        }
+        for (let i = 0, l = shapeVertices.length; i < l; i++) {
+          const vertex2 = shapeVertices[i];
+          vertices.push(vertex2.x, vertex2.y, 0);
+          normals.push(0, 0, 1);
+          uvs.push(vertex2.x, vertex2.y);
+        }
+        for (let i = 0, l = faces.length; i < l; i++) {
+          const face2 = faces[i];
+          const a = face2[0] + indexOffset;
+          const b = face2[1] + indexOffset;
+          const c = face2[2] + indexOffset;
+          indices.push(a, b, c);
+          groupCount += 3;
+        }
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      const shapes = this.parameters.shapes;
+      return toJSON(shapes, data);
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @param {Array<Shape>} shapes - An array of shapes.
+     * @return {ShapeGeometry} A new instance.
+     */
+    static fromJSON(data, shapes) {
+      const geometryShapes = [];
+      for (let j = 0, jl = data.shapes.length; j < jl; j++) {
+        const shape = shapes[data.shapes[j]];
+        geometryShapes.push(shape);
+      }
+      return new _ShapeGeometry(geometryShapes, data.curveSegments);
+    }
+  };
+  function toJSON(shapes, data) {
+    data.shapes = [];
+    if (Array.isArray(shapes)) {
+      for (let i = 0, l = shapes.length; i < l; i++) {
+        const shape = shapes[i];
+        data.shapes.push(shape.uuid);
+      }
+    } else {
+      data.shapes.push(shapes.uuid);
+    }
+    return data;
+  }
   var SphereGeometry = class _SphereGeometry extends BufferGeometry {
     /**
      * Constructs a new sphere geometry.
@@ -28451,7 +29480,7 @@ void main() {
   renderer.shadowMap.type = PCFSoftShadowMap;
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.28;
+  renderer.toneMappingExposure = 1.18;
   var scene = new Scene();
   scene.fog = new FogExp2(7909055, 0.019);
   var camera = new PerspectiveCamera(38, W / H, 0.1, 120);
@@ -28492,8 +29521,8 @@ void main() {
   }
   resizeGame();
   addEventListener("resize", resizeGame);
-  scene.add(new HemisphereLight(12180735, 1058581, 1.65));
-  var sun = new DirectionalLight(16767379, 5.4);
+  scene.add(new HemisphereLight(12180735, 1520658, 1.35));
+  var sun = new DirectionalLight(16765066, 3.7);
   sun.position.set(-5, 8, 9);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -28507,6 +29536,12 @@ void main() {
   var rim = new DirectionalLight(7520255, 1.55);
   rim.position.set(7, 3, -6);
   scene.add(rim);
+  var heroKey = new DirectionalLight(16765600, 3.25);
+  heroKey.position.set(-1.5, 4.5, 10);
+  scene.add(heroKey);
+  var faceFill = new PointLight(16770244, 13, 34, 1.8);
+  faceFill.position.set(0, 3, 9);
+  scene.add(faceFill);
   var world = new Group();
   scene.add(world);
   var groundTexture = new TextureLoader().load("assets/jungle-ground-v2.png");
@@ -28514,7 +29549,7 @@ void main() {
   groundTexture.wrapS = groundTexture.wrapT = RepeatWrapping;
   groundTexture.repeat.set(8, 5);
   groundTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  var globeMat = new MeshPhysicalMaterial({ color: 16777215, map: groundTexture, bumpMap: groundTexture, bumpScale: 0.032, roughness: 0.88, metalness: 0, clearcoat: 0.06, clearcoatRoughness: 0.82 });
+  var globeMat = new MeshPhysicalMaterial({ color: 12904316, map: groundTexture, bumpMap: groundTexture, bumpScale: 0.072, roughness: 0.96, metalness: 0, clearcoat: 0.018, clearcoatRoughness: 0.94 });
   var globe = new Mesh(new SphereGeometry(R, 96, 64), globeMat);
   globe.receiveShadow = true;
   world.add(globe);
@@ -28536,8 +29571,8 @@ void main() {
   leafTexture2.needsUpdate = true;
   var brown = new MeshPhysicalMaterial({ color: 16769725, map: barkTexture, bumpMap: barkTexture, bumpScale: 0.045, roughness: 0.9, clearcoat: 0.04, clearcoatRoughness: 0.85 });
   var bark = new MeshPhysicalMaterial({ color: 16768432, map: barkTexture, bumpMap: barkTexture, bumpScale: 0.065, roughness: 0.94, clearcoat: 0.025, clearcoatRoughness: 0.9 });
-  var leaf = new MeshPhysicalMaterial({ color: 15925224, map: leafTexture, bumpMap: leafTexture, bumpScale: 0.026, roughness: 0.76, clearcoat: 0.12, clearcoatRoughness: 0.7 });
-  var leaf2 = new MeshPhysicalMaterial({ color: 16252904, map: leafTexture2, bumpMap: leafTexture2, bumpScale: 0.022, roughness: 0.72, clearcoat: 0.14, clearcoatRoughness: 0.66 });
+  var leaf = new MeshPhysicalMaterial({ color: 14679996, map: leafTexture, bumpMap: leafTexture, bumpScale: 0.026, roughness: 0.76, clearcoat: 0.12, clearcoatRoughness: 0.7, side: DoubleSide });
+  var leaf2 = new MeshPhysicalMaterial({ color: 15794119, map: leafTexture2, bumpMap: leafTexture2, bumpScale: 0.022, roughness: 0.72, clearcoat: 0.14, clearcoatRoughness: 0.66, side: DoubleSide });
   var rockMat = new MeshPhysicalMaterial({ color: 15196107, map: rockTexture, bumpMap: rockTexture, bumpScale: 0.075, roughness: 0.93, flatShading: true, clearcoat: 0.035, clearcoatRoughness: 0.9 });
   var moss = new MeshStandardMaterial({ color: 7445061, map: leafTexture2, bumpMap: leafTexture2, bumpScale: 0.025, roughness: 1 });
   var pathMat = new MeshStandardMaterial({ color: 16768949, map: dirtTexture, bumpMap: dirtTexture, bumpScale: 0.035, roughness: 0.98, transparent: true, opacity: 0.94 });
@@ -28607,35 +29642,61 @@ void main() {
     const g = new Group();
     const trunkCurve = new CatmullRomCurve3([new Vector3(0, 0, 0), new Vector3(0.035, 0.5, 0), new Vector3(0.11, 1.08, 0.015), new Vector3(0.2, 1.65, 0)]), trunk = new Mesh(new TubeGeometry(trunkCurve, 24, 0.09, 9, false), bark);
     g.add(trunk);
-    for (let i = 0; i < 7; i++) {
-      const band = new Mesh(new TorusGeometry(0.093 - i * 2e-3, 0.012, 5, 10), brown);
-      band.position.copy(trunkCurve.getPoint(0.1 + i * 0.12));
+    for (let i = 0; i < 10; i++) {
+      const band = new Mesh(new TorusGeometry(0.098 - i * 22e-4, 0.014, 5, 10), brown);
+      band.position.copy(trunkCurve.getPoint(0.055 + i * 0.085));
       band.rotation.x = Math.PI / 2;
       band.rotation.z = -0.08;
       g.add(band);
     }
     const crown = new Group();
     crown.position.set(0.2, 1.65, 0);
-    for (let i = 0; i < 10; i++) {
-      const a = i / 10 * Math.PI * 2, frond = new Group(), stem = new Mesh(new CylinderGeometry(0.014, 0.022, 0.82, 6), new MeshStandardMaterial({ color: 3501095, roughness: 0.9 }));
-      stem.position.y = 0.38;
-      frond.add(stem);
-      for (let j = 0; j < 8; j++) {
-        const y = 0.09 + j * 0.085, width = 0.17 * (1 - Math.abs(j - 3.5) / 5), blade = new Mesh(new CapsuleGeometry(0.018, Math.max(0.08, width), 3, 6), j % 2 ? leaf : leaf2);
-        blade.position.set((j % 2 ? -1 : 1) * (0.04 + width * 0.45), y, 0);
-        blade.rotation.z = (j % 2 ? 1 : -1) * (1.08 + 0.04 * j);
-        blade.scale.z = 0.35;
-        frond.add(blade);
-      }
+    const frondShape = new Shape();
+    frondShape.moveTo(0, 0);
+    frondShape.lineTo(-0.08, 0.1);
+    frondShape.lineTo(-0.19, 0.18);
+    frondShape.lineTo(-0.11, 0.24);
+    frondShape.lineTo(-0.22, 0.34);
+    frondShape.lineTo(-0.12, 0.4);
+    frondShape.lineTo(-0.2, 0.51);
+    frondShape.lineTo(-0.1, 0.57);
+    frondShape.lineTo(-0.16, 0.68);
+    frondShape.lineTo(-0.07, 0.73);
+    frondShape.lineTo(-0.1, 0.83);
+    frondShape.lineTo(0, 0.98);
+    frondShape.lineTo(0.1, 0.83);
+    frondShape.lineTo(0.07, 0.73);
+    frondShape.lineTo(0.16, 0.68);
+    frondShape.lineTo(0.1, 0.57);
+    frondShape.lineTo(0.2, 0.51);
+    frondShape.lineTo(0.12, 0.4);
+    frondShape.lineTo(0.22, 0.34);
+    frondShape.lineTo(0.11, 0.24);
+    frondShape.lineTo(0.19, 0.18);
+    frondShape.lineTo(0.08, 0.1);
+    frondShape.closePath();
+    const frondGeo = new ShapeGeometry(frondShape, 5);
+    frondGeo.translate(0, 0.02, 0);
+    for (let i = 0; i < 13; i++) {
+      const a = i / 13 * Math.PI * 2, frond = new Mesh(frondGeo, i % 2 ? leaf : leaf2);
       frond.rotation.order = "YXZ";
       frond.rotation.y = -a;
-      frond.rotation.z = 1.02 + i % 3 * 0.1;
-      frond.rotation.x = (i % 2 - 0.5) * 0.14;
+      frond.rotation.x = -Math.PI / 2 + 0.58 + i % 3 * 0.065;
+      frond.rotation.z = (i % 2 - 0.5) * 0.08;
+      frond.scale.set(1.04 + i % 4 * 0.05, 1.02 + i % 3 * 0.06, 1);
       crown.add(frond);
+      const vein = new Mesh(new CylinderGeometry(0.012, 0.018, 0.95, 6), new MeshStandardMaterial({ color: 3235618, roughness: 0.92 }));
+      vein.position.set(Math.sin(a) * 0.43, 0.12, Math.cos(a) * 0.43);
+      vein.rotation.z = Math.PI / 2;
+      vein.rotation.y = a;
+      vein.rotation.x = 0.12;
+      crown.add(vein);
     }
-    for (let i = 0; i < 3; i++) {
-      const nut = new Mesh(new SphereGeometry(0.075, 10, 8), brown);
-      nut.position.set((i - 1) * 0.08, -0.08, (i % 2 - 0.5) * 0.08);
+    for (let i = 0; i < 5; i++) {
+      const nut = new Mesh(new SphereGeometry(0.082, 12, 9), new MeshPhysicalMaterial({ color: 7901478, roughness: 0.78 }));
+      const a = i / 5 * Math.PI * 2;
+      nut.position.set(Math.cos(a) * 0.105, -0.09, Math.sin(a) * 0.105);
+      nut.scale.set(0.82, 1.12, 0.82);
       crown.add(nut);
     }
     g.add(crown);
@@ -28775,14 +29836,16 @@ void main() {
     const y = 1 - (i + 0.5) / 360 * 2, lat = Math.asin(y), lon = i * 2.399963;
     const n = normalAt(lat, lon), k = i % 15;
     if (n.angleTo(CAMERA_CENTER_NORMAL) < 0.15) foliage(n, 0.55);
-    else if (k === 0 || k === 7) tree(n, 0.58 + i % 5 * 0.05);
-    else if (k === 3 || k === 10) rock(n, 0.42 + i % 4 * 0.06);
+    else if (k === 0 || k === 7) {
+      if (i % 4 === 0) palm(n, 0.66 + i % 4 * 0.045);
+      else tree(n, 0.58 + i % 5 * 0.05);
+    } else if (k === 3 || k === 10) rock(n, 0.42 + i % 4 * 0.06);
     else if (k === 5) log(n, 0.48 + i % 3 * 0.07);
     else foliage(n, 0.55 + i % 3 * 0.08);
   }
-  for (let i = 0; i < 22; i++) {
-    const y = 1 - (i + 0.5) / 22 * 2;
-    palm(normalAt(Math.asin(y), i * 2.399963 + 1.1), 0.62 + i % 4 * 0.06);
+  for (let i = 0; i < 48; i++) {
+    const y = 1 - (i + 0.5) / 48 * 2;
+    palm(normalAt(Math.asin(y), i * 2.399963 + 1.1), 0.62 + i % 5 * 0.055);
   }
   for (let i = 0; i < 140; i++) {
     const y = 1 - (i + 0.35) / 140 * 2, n = normalAt(Math.asin(y), i * 2.399963 + 0.73);
@@ -28848,8 +29911,8 @@ void main() {
     return t;
   }
   var furTexture = makeFurTexture();
-  var fur = new MeshPhysicalMaterial({ color: 8010781, map: furTexture, bumpMap: furTexture, bumpScale: 0.018, roughness: 0.84, sheen: 0.16, sheenColor: new Color(12086322) });
-  var face = new MeshPhysicalMaterial({ color: 14260834, roughness: 0.72, clearcoat: 0.08, clearcoatRoughness: 0.82 });
+  var fur = new MeshPhysicalMaterial({ color: 11098408, map: furTexture, bumpMap: furTexture, bumpScale: 0.026, roughness: 0.86, sheen: 0.28, sheenColor: new Color(15043141), emissive: 2166021, emissiveIntensity: 0.12 });
+  var face = new MeshPhysicalMaterial({ color: 15773298, roughness: 0.7, clearcoat: 0.09, clearcoatRoughness: 0.8, emissive: 2625542, emissiveIntensity: 0.055 });
   var dark = new MeshStandardMaterial({ color: 2102543, roughness: 0.9 });
   var white = new MeshStandardMaterial({ color: 16774363, roughness: 0.65 });
   var apeRoot = new Group();
@@ -28883,6 +29946,19 @@ void main() {
     tuft.castShadow = true;
     apeModel.add(tuft);
   }
+  for (const side of [-1, 1]) for (let i = 0; i < 3; i++) {
+    const cheek = new Mesh(new ConeGeometry(0.032, 0.105, 6), fur);
+    cheek.position.set(side * (0.245 + i * 0.012), 0.77 - i * 0.055, 0.025);
+    cheek.rotation.z = side * (1.15 + i * 0.12);
+    cheek.castShadow = true;
+    apeModel.add(cheek);
+  }
+  var nose = spherePart(new SphereGeometry(0.054, 14, 10), new MeshPhysicalMaterial({ color: 8077095, roughness: 0.76 }), [0, 0.755, 0.315], [1.15, 0.72, 0.7], apeModel);
+  for (const side of [-1, 1]) spherePart(new SphereGeometry(0.012, 8, 6), dark, [side * 0.022, 0.758, 0.35], [0.72, 0.5, 0.5], apeModel);
+  var tailCurve = new CatmullRomCurve3([new Vector3(0.03, 0.48, -0.16), new Vector3(0.28, 0.5, -0.24), new Vector3(0.39, 0.65, -0.18), new Vector3(0.36, 0.79, -0.1), new Vector3(0.27, 0.79, -0.07)]);
+  var tail = new Mesh(new TubeGeometry(tailCurve, 22, 0.045, 8, false), fur);
+  tail.castShadow = true;
+  apeModel.add(tail);
   var limbs = {};
   function makeJointedLimb(name, x, y, isLeg) {
     const upperLen = isLeg ? 0.2 : 0.19, lowerLen = isLeg ? 0.19 : 0.2, root = new Group(), joint = new Group(), end = new Group();
@@ -28909,7 +29985,7 @@ void main() {
     for (let i = -1; i <= 1; i++) spherePart(new SphereGeometry(0.019, 8, 6), face, [i * 0.024, -0.018, 0.07 + Math.abs(i) * 8e-3], [0.72, 0.5, 1.15], hand);
     for (let i = -1; i <= 1; i++) spherePart(new SphereGeometry(0.024, 8, 6), face, [i * 0.029, -0.014, 0.105], [0.8, 0.48, 1.35], foot);
   }
-  apeModel.scale.setScalar(0.42);
+  apeModel.scale.setScalar(0.5);
   apeModel.traverse((m) => {
     if (m.isMesh) {
       m.castShadow = true;
@@ -29078,17 +30154,17 @@ void main() {
     body2.rotation.z = Math.PI / 2;
     body2.castShadow = true;
     g.add(body2);
-    const nose = new Mesh(new ConeGeometry(0.14, 0.28, 12), bodyMat);
-    nose.rotation.z = -Math.PI / 2;
-    nose.position.x = 0.58;
-    g.add(nose);
+    const nose2 = new Mesh(new ConeGeometry(0.14, 0.28, 12), bodyMat);
+    nose2.rotation.z = -Math.PI / 2;
+    nose2.position.x = 0.58;
+    g.add(nose2);
     const wing = new Mesh(new BoxGeometry(0.32, 0.055, 1.15), wingMat);
     wing.position.x = 0.02;
     wing.castShadow = true;
     g.add(wing);
-    const tail = new Mesh(new BoxGeometry(0.24, 0.045, 0.5), wingMat);
-    tail.position.x = -0.43;
-    g.add(tail);
+    const tail2 = new Mesh(new BoxGeometry(0.24, 0.045, 0.5), wingMat);
+    tail2.position.x = -0.43;
+    g.add(tail2);
     const fin = new Mesh(new BoxGeometry(0.2, 0.28, 0.045), wingMat);
     fin.position.set(-0.42, 0.15, 0);
     g.add(fin);
@@ -29408,8 +30484,8 @@ void main() {
               break;
             }
             const sideA = apeN.clone().cross(towardProp).normalize();
-            const sign = sideA.dot(tangentToward(apeN, targetN).cross(apeN)) > 0 ? 1 : -1;
-            moveDir.addScaledVector(sideA, sign * (p.kind === "tree" ? 1.7 : 0.8) * Math.max(0, (0.25 - d) / 0.25));
+            const sign2 = sideA.dot(tangentToward(apeN, targetN).cross(apeN)) > 0 ? 1 : -1;
+            moveDir.addScaledVector(sideA, sign2 * (p.kind === "tree" ? 1.7 : 0.8) * Math.max(0, (0.25 - d) / 0.25));
           }
         }
         if (trip <= 0) {
