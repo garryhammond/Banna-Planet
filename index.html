@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ape Globe Run</title>
-  <link rel="stylesheet" href="styles.css?v=banana-menu77" />
+  <link rel="stylesheet" href="styles.css?v=settings-position83" />
   <style>body{background:radial-gradient(circle at 50% 8%,#244a68,#0b2028 52%,#03090c)}h1{text-shadow:0 3px 10px #000}.eyebrow{color:#f4d36b}.hud{gap:12px}.hud span{padding:12px 18px;border:2px solid #ffffff45;border-radius:18px;background:linear-gradient(#263c52ee,#132436ee);box-shadow:inset 0 1px #fff4,0 8px 24px #0006;font-weight:900;text-shadow:0 2px 3px #000}.hud #score{color:#ffd66a}.hud #health{color:#ff624e;font-size:18px}.hud #best{color:#fff2c6}.game-shell{border-color:#8ea299aa;box-shadow:0 28px 100px #000b,0 0 50px #477d6b33}.card{background:linear-gradient(#172c3bf2,#0c1b22f2);border:2px solid #ffffff38}button{background:linear-gradient(#fff08a,#f6b82c);box-shadow:0 6px 0 #9a6716,0 10px 26px #f5c33344}</style>
 </head>
 <body>
@@ -15,6 +15,16 @@
     </header>
     <section class="game-shell">
       <canvas id="game" width="390" height="844" tabindex="0" aria-label="A cartoon ape running around a globe"></canvas>
+      <button id="game-menu-button" class="game-menu-button" type="button" aria-label="Pause and settings">⚙</button>
+      <div id="game-menu" class="game-menu" hidden>
+        <div class="game-menu-card">
+          <div class="pause-emblem">Ⅱ</div><h2>GAME PAUSED</h2><p class="pause-subtitle">Banana Planet is waiting for you.</p>
+          <button id="resume-game" class="game-menu-primary" type="button">▶ RESUME</button>
+          <div class="game-menu-actions"><button id="restart-game" type="button">↻ RESTART</button><button id="main-menu-game" type="button">⌂ MAIN MENU</button></div>
+          <section class="settings-block"><h3>AUDIO</h3><div class="game-setting-row"><span><b>Sound effects</b><small>Gameplay audio</small></span><button id="game-sound-toggle" type="button">ON</button></div>
+          <label class="game-volume-row"><span><b>Master volume</b><output id="game-volume-value">65%</output></span><input id="game-volume-slider" type="range" min="0" max="100" step="5" value="65" aria-label="In-game master volume"></label></section>
+        </div>
+      </div>
       <div id="start" class="overlay menu-overlay">
         <div class="falling-spark spark-one">✦</div><div class="falling-spark spark-two">✦</div><div class="menu-banana" aria-hidden="true">🍌</div>
         <div class="card menu-card">
@@ -35,7 +45,7 @@
       <div id="sound-status" role="status" aria-live="polite">🔊 Sound on</div>
     </section>
   </main>
-<script type="module" src="game3d.js?v=verified-event-audio84"></script>
+<script type="module" src="game3d.js?v=palms-ape87"></script>
 <script>
   const menuPanel=document.querySelector('#menu-panel');
   const menuCopy={
@@ -50,6 +60,15 @@
     menuPanel.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',()=>{const on=t.getAttribute('aria-pressed')==='true',next=!on;t.setAttribute('aria-pressed',String(next));t.textContent=next?'ON':'OFF';t.classList.toggle('selected',next);if(t.classList.contains('sound-toggle'))window.dispatchEvent(new CustomEvent('bp-sound',{detail:next}));}));
     if(slider)slider.addEventListener('input',()=>{const value=Number(slider.value);volumeValue.textContent=`${value}%`;const enabled=value>0;sound.setAttribute('aria-pressed',String(enabled));sound.textContent=enabled?'ON':'OFF';sound.classList.toggle('selected',enabled);window.dispatchEvent(new CustomEvent('bp-volume',{detail:value/100}));});
   }));
+  const gameMenuButton=document.querySelector('#game-menu-button'),gameMenu=document.querySelector('#game-menu'),resumeGame=document.querySelector('#resume-game'),restartGame=document.querySelector('#restart-game'),mainMenuGame=document.querySelector('#main-menu-game'),gameSound=document.querySelector('#game-sound-toggle'),gameVolume=document.querySelector('#game-volume-slider'),gameVolumeValue=document.querySelector('#game-volume-value');
+  function syncGameAudio(){const level=Math.round(Math.max(0,Math.min(1,Number(localStorage.getItem('bpVolume')??.65)))*100),enabled=localStorage.getItem('bpSound')!=='off'&&level>0;gameVolume.value=String(level);gameVolumeValue.textContent=`${level}%`;gameSound.textContent=enabled?'ON':'OFF';gameSound.classList.toggle('selected',enabled);gameSound.setAttribute('aria-pressed',String(enabled));}
+  function setGameMenu(open){gameMenu.hidden=!open;gameMenuButton.textContent=open?'✕':'⚙';window.dispatchEvent(new CustomEvent('bp-pause',{detail:open}));if(open)syncGameAudio();}
+  gameMenuButton.addEventListener('click',()=>setGameMenu(gameMenu.hidden));resumeGame.addEventListener('click',()=>setGameMenu(false));
+  restartGame.addEventListener('click',()=>{sessionStorage.setItem('apeAutoStart','1');location.reload();});
+  mainMenuGame.addEventListener('click',()=>{sessionStorage.removeItem('apeAutoStart');location.reload();});
+  gameSound.addEventListener('click',()=>{const enabled=gameSound.getAttribute('aria-pressed')!=='true';gameSound.setAttribute('aria-pressed',String(enabled));gameSound.textContent=enabled?'ON':'OFF';gameSound.classList.toggle('selected',enabled);window.dispatchEvent(new CustomEvent('bp-sound',{detail:enabled}));});
+  gameVolume.addEventListener('input',()=>{const value=Number(gameVolume.value),enabled=value>0;gameVolumeValue.textContent=`${value}%`;gameSound.setAttribute('aria-pressed',String(enabled));gameSound.textContent=enabled?'ON':'OFF';gameSound.classList.toggle('selected',enabled);window.dispatchEvent(new CustomEvent('bp-volume',{detail:value/100}));});
+  syncGameAudio();
 </script>
 </body>
 </html>

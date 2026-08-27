@@ -1,5 +1,11 @@
 # Ape Globe Run — completed local build
 
+## Play online
+
+[Play Banana Planet in your browser](https://garryhammond.github.io/Banna-Planet/)
+
+The `main` branch deploys automatically through GitHub Pages after each push.
+
 This repository contains the completed standalone Ape Globe / Banana Planet HTML prototype. It is a separate local build; it does not reference or modify the original ChatGPT web prototype or the user's RAZZ project.
 
 The game is a portrait, touch-first Three.js prototype. The player swipes or drags to rotate a curved jungle planet while an automatic cartoon ape runs back toward the visible target, catches bananas, avoids falling hazards, navigates solid trees, and trips over ground obstacles. The build includes the Banana Planet menu, procedural sound effects, health/scoring, bees and hives, falling items, game-over/restart behavior, and responsive iPhone framing.
