@@ -38,3 +38,7 @@ Do not open `index.html` directly with a `file://` URL; the Three.js ES module m
 ## Continuing in another coding assistant
 
 Start by running the current build and preserving its existing gameplay behavior. Work only in this standalone repository. Before changing movement, collision, camera, or audio, verify the current portrait preview and keep touch rotation, ape catch-up, solid obstacles, trip/recovery, falling items, menu, and sound settings working.
+
+## Collaboration and future Unity work
+
+Project guidance for collaborators is in `docs/`, and the reserved Unity export area is in `Unity/`. Never commit passwords, API keys, or other secrets.

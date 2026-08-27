@@ -1,4 +1,22 @@
 node_modules/
+*.log
+
+# Unity generated folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# IDE and operating-system files
+.vs/
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
-*.log
+
+# Secrets
+.env
+*.key
