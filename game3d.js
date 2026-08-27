@@ -1,4 +1,5 @@
 import * as THREE from './assets/vendor/three.module.js';
+document.documentElement.dataset.gameModule='booting';
 
 const canvas = document.querySelector('#game');
 const start = document.querySelector('#start');
@@ -632,3 +633,4 @@ addEventListener('keydown',e=>{const k=e.key.toLowerCase(),qa=new URLSearchParam
 addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(MOVE_KEYS.includes(k))heldKeys[k]=false;});
 addEventListener('blur',()=>{for(const k of MOVE_KEYS)heldKeys[k]=false;});
 requestAnimationFrame(frame);
+document.documentElement.dataset.gameModule='ready';
