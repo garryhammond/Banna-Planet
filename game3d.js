@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from './node_modules/.pnpm/three@0.179.1/node_modules/three/examples/jsm/loaders/GLTFLoader.js';
+import { FBXLoader } from './node_modules/.pnpm/three@0.179.1/node_modules/three/examples/jsm/loaders/FBXLoader.js';
 document.documentElement.dataset.gameModule='booting';
 
 const canvas = document.querySelector('#game');
@@ -278,6 +279,14 @@ const face=new THREE.MeshPhysicalMaterial({color:0xf0ae72,roughness:.7,clearcoat
 const dark=new THREE.MeshStandardMaterial({color:0x20150f,roughness:.9});
 const white=new THREE.MeshStandardMaterial({color:0xfff4db,roughness:.65});
 const apeRoot=new THREE.Group(), apeModel=new THREE.Group(); apeRoot.add(apeModel); world.add(apeRoot);
+let riggedApeRoot=null,riggedApeMixer=null,riggedApeAction=null;
+new FBXLoader().load('assets/models/cc0-monkey/monkey.FBX',asset=>{
+  const bounds=new THREE.Box3().setFromObject(asset),center=bounds.getCenter(new THREE.Vector3()),scaleWrap=new THREE.Group();
+  asset.position.set(-center.x,-bounds.min.y,-center.z);asset.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
+  scaleWrap.scale.setScalar(.00315);scaleWrap.add(asset);riggedApeRoot=new THREE.Group();riggedApeRoot.add(scaleWrap);riggedApeRoot.visible=false;apeRoot.add(riggedApeRoot);
+  if(asset.animations.length){riggedApeMixer=new THREE.AnimationMixer(asset);riggedApeAction=riggedApeMixer.clipAction(asset.animations[0]);riggedApeAction.play();}
+  document.documentElement.dataset.heroAsset='cc0-rigged';
+},error=>{console.warn('Rigged CC0 ape fallback active',error);document.documentElement.dataset.heroAsset='procedural-fallback';});
 const apeContact=new THREE.Mesh(new THREE.CylinderGeometry(.16,.18,.009,20),new THREE.MeshBasicMaterial({color:0x173d18,transparent:true,opacity:.68,depthWrite:false}));
 apeContact.scale.z=.55;world.add(apeContact);
 const body=spherePart(new THREE.SphereGeometry(.24,22,18),fur,[0,.43,0],[.84,1.2,.74],apeModel);
@@ -637,6 +646,7 @@ function frame(now){
     }
     for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life-=dt;e.g.scale.multiplyScalar(1+dt*7);e.g.material.opacity=Math.max(0,e.life*1.7);if(e.life<=0){world.remove(e.g);effects.splice(i,1);}}
   }
+  if(riggedApeRoot){const useRigged=running&&!knockedOut&&trip<=0&&hitTimer<=0&&startleTimer<=0&&beeWaveTimer<=0;riggedApeRoot.visible=useRigged;apeModel.visible=!useRigged;riggedApeRoot.position.copy(apeModel.position);riggedApeRoot.rotation.set(0,apeModel.rotation.y+Math.PI,0);if(riggedApeAction)riggedApeAction.timeScale=THREE.MathUtils.clamp(.35+runSpeed*10,.38,1.45);if(riggedApeMixer)riggedApeMixer.update(dt);}
   renderer.render(scene,camera);requestAnimationFrame(frame);
 }
 playButton.addEventListener('click',()=>{
