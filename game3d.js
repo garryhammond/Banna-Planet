@@ -635,11 +635,11 @@ let pinchDistance=0;
 function pointerDistance(){const p=[...activePointers.values()];return p.length<2?0:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);}
 function finishPointer(e){activePointers.delete(e.pointerId);pinchDistance=0;if(activePointers.size===1){const p=[...activePointers.values()][0];dragPrev.set(p.x,p.y);dragging=true;}else dragging=false;}
 canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});velocity.set(0,0);if(activePointers.size===1){dragging=true;dragPrev.set(e.clientX,e.clientY);}else{dragging=false;pinchDistance=pointerDistance();}});
-canvas.addEventListener('pointermove',e=>{if(!activePointers.has(e.pointerId))return;activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(activePointers.size>=2){const nextDistance=pointerDistance();if(pinchDistance>0&&nextDistance>0){cameraZoom=THREE.MathUtils.clamp(cameraZoom+Math.log(pinchDistance/nextDistance)*.3,0,1);applyCameraZoom();}pinchDistance=nextDistance;velocity.set(0,0);return;}if(!dragging)return;const dx=(e.clientX-dragPrev.x)*.00115,dy=(e.clientY-dragPrev.y)*.00115;rotateWorld(dx,dy,true);velocity.set(dx*.75,dy*.75);dragPrev.set(e.clientX,e.clientY);lastMove=performance.now();});
+canvas.addEventListener('pointermove',e=>{if(!activePointers.has(e.pointerId))return;activePointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(activePointers.size>=2){const nextDistance=pointerDistance();if(pinchDistance>0&&nextDistance>0){cameraZoom=THREE.MathUtils.clamp(cameraZoom+Math.log(pinchDistance/nextDistance)*.3,0,1);applyCameraZoom();}pinchDistance=nextDistance;velocity.set(0,0);return;}if(!dragging)return;const dx=(e.clientX-dragPrev.x)*.0009,dy=(e.clientY-dragPrev.y)*.0009;rotateWorld(dx,dy,true);velocity.set(dx*.6,dy*.6);dragPrev.set(e.clientX,e.clientY);lastMove=performance.now();});
 canvas.addEventListener('pointerup',finishPointer);canvas.addEventListener('pointercancel',finishPointer);
 const heldKeys={};
 const MOVE_KEYS=['arrowleft','arrowright','arrowup','arrowdown','a','d','w','s'];
-const KEY_TURN_SPEED=.0022;
+const KEY_TURN_SPEED=.0017;
 function keyboardVector(){let x=0,y=0;if(heldKeys.arrowleft||heldKeys.a)x+=1;if(heldKeys.arrowright||heldKeys.d)x-=1;if(heldKeys.arrowup||heldKeys.w)y+=1;if(heldKeys.arrowdown||heldKeys.s)y-=1;return{x,y};}
 
 function tripApe(obstacle=null){if(obstacle&&obstacleGrace>0)return;if(trip<=0){playCue('trip');trip=2.15;tripPhase='stumble';tripObstacle=obstacle;toast.textContent='OOF!';setTimeout(()=>toast.textContent='',700);}}
@@ -694,11 +694,11 @@ function updateApe(dt,t){
   else if(trip<=0){
     // Spherical travel speed is capped to what the short legs can physically
     // support. This keeps root motion matched to visible steps instead of skating.
-    const wanted=gap>=.19?.36:gap>=.08?THREE.MathUtils.lerp(.17,.32,(gap-.08)/.11):Math.min(.1,Math.max(0,(gap-.012)*1.55));runSpeed+=THREE.MathUtils.clamp(wanted-runSpeed,-dt*.55,dt*.55);
+    const wanted=gap>=.19?.4:gap>=.08?THREE.MathUtils.lerp(.2,.38,(gap-.08)/.11):Math.min(.11,Math.max(0,(gap-.012)*1.75));runSpeed+=THREE.MathUtils.clamp(wanted-runSpeed,-dt*.72,dt*.72);
     if(gap>.005){
       const previous=apeN.clone();
       const desired=tangentToward(apeN,targetN);let moveDir=desired.clone();
-      const fastCatchup=(gap>=.19||runSpeed>.145)&&obstacleGrace<=0;
+      const fastCatchup=(gap>=.19||runSpeed>.12)&&obstacleGrace<=0;
       if(lastGap>0&&gap>lastGap-.00035&&runSpeed>.025)stuckTime+=dt;else stuckTime=Math.max(0,stuckTime-dt*2);lastGap=gap;
       if(stuckTime>.65){avoidTimer=1.25;avoidObstacle=avoidObstacle||tripObstacle||props.reduce((best,p)=>apeN.angleTo(p.n)<apeN.angleTo(best.n)?p:best,props[0]);avoidSide*=-1;apeN.copy(clearRecoveryPoint(apeN,targetN));stuckTime=0;}
       if(avoidTimer>0&&avoidObstacle){const toward=tangentToward(apeN,avoidObstacle.n),side=apeN.clone().cross(toward).normalize().multiplyScalar(avoidSide);moveDir.multiplyScalar(.32).addScaledVector(side,2.8);}
