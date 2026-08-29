@@ -17367,6 +17367,444 @@
       vertices.push(contour[i].y);
     }
   }
+  var ExtrudeGeometry = class _ExtrudeGeometry extends BufferGeometry {
+    /**
+     * Constructs a new extrude geometry.
+     *
+     * @param {Shape|Array<Shape>} [shapes] - A shape or an array of shapes.
+     * @param {ExtrudeGeometry~Options} [options] - The extrude settings.
+     */
+    constructor(shapes = new Shape([new Vector2(0.5, 0.5), new Vector2(-0.5, 0.5), new Vector2(-0.5, -0.5), new Vector2(0.5, -0.5)]), options = {}) {
+      super();
+      this.type = "ExtrudeGeometry";
+      this.parameters = {
+        shapes,
+        options
+      };
+      shapes = Array.isArray(shapes) ? shapes : [shapes];
+      const scope = this;
+      const verticesArray = [];
+      const uvArray = [];
+      for (let i = 0, l = shapes.length; i < l; i++) {
+        const shape = shapes[i];
+        addShape(shape);
+      }
+      this.setAttribute("position", new Float32BufferAttribute(verticesArray, 3));
+      this.setAttribute("uv", new Float32BufferAttribute(uvArray, 2));
+      this.computeVertexNormals();
+      function addShape(shape) {
+        const placeholder = [];
+        const curveSegments = options.curveSegments !== void 0 ? options.curveSegments : 12;
+        const steps = options.steps !== void 0 ? options.steps : 1;
+        const depth = options.depth !== void 0 ? options.depth : 1;
+        let bevelEnabled = options.bevelEnabled !== void 0 ? options.bevelEnabled : true;
+        let bevelThickness = options.bevelThickness !== void 0 ? options.bevelThickness : 0.2;
+        let bevelSize = options.bevelSize !== void 0 ? options.bevelSize : bevelThickness - 0.1;
+        let bevelOffset = options.bevelOffset !== void 0 ? options.bevelOffset : 0;
+        let bevelSegments = options.bevelSegments !== void 0 ? options.bevelSegments : 3;
+        const extrudePath = options.extrudePath;
+        const uvgen = options.UVGenerator !== void 0 ? options.UVGenerator : WorldUVGenerator;
+        let extrudePts, extrudeByPath = false;
+        let splineTube, binormal, normal, position2;
+        if (extrudePath) {
+          extrudePts = extrudePath.getSpacedPoints(steps);
+          extrudeByPath = true;
+          bevelEnabled = false;
+          splineTube = extrudePath.computeFrenetFrames(steps, false);
+          binormal = new Vector3();
+          normal = new Vector3();
+          position2 = new Vector3();
+        }
+        if (!bevelEnabled) {
+          bevelSegments = 0;
+          bevelThickness = 0;
+          bevelSize = 0;
+          bevelOffset = 0;
+        }
+        const shapePoints = shape.extractPoints(curveSegments);
+        let vertices = shapePoints.shape;
+        const holes = shapePoints.holes;
+        const reverse = !ShapeUtils.isClockWise(vertices);
+        if (reverse) {
+          vertices = vertices.reverse();
+          for (let h = 0, hl = holes.length; h < hl; h++) {
+            const ahole = holes[h];
+            if (ShapeUtils.isClockWise(ahole)) {
+              holes[h] = ahole.reverse();
+            }
+          }
+        }
+        function mergeOverlappingPoints(points) {
+          const THRESHOLD = 1e-10;
+          const THRESHOLD_SQ = THRESHOLD * THRESHOLD;
+          let prevPos = points[0];
+          for (let i = 1; i <= points.length; i++) {
+            const currentIndex = i % points.length;
+            const currentPos = points[currentIndex];
+            const dx = currentPos.x - prevPos.x;
+            const dy = currentPos.y - prevPos.y;
+            const distSq = dx * dx + dy * dy;
+            const scalingFactorSqrt = Math.max(
+              Math.abs(currentPos.x),
+              Math.abs(currentPos.y),
+              Math.abs(prevPos.x),
+              Math.abs(prevPos.y)
+            );
+            const thresholdSqScaled = THRESHOLD_SQ * scalingFactorSqrt * scalingFactorSqrt;
+            if (distSq <= thresholdSqScaled) {
+              points.splice(currentIndex, 1);
+              i--;
+              continue;
+            }
+            prevPos = currentPos;
+          }
+        }
+        mergeOverlappingPoints(vertices);
+        holes.forEach(mergeOverlappingPoints);
+        const numHoles = holes.length;
+        const contour = vertices;
+        for (let h = 0; h < numHoles; h++) {
+          const ahole = holes[h];
+          vertices = vertices.concat(ahole);
+        }
+        function scalePt2(pt, vec, size) {
+          if (!vec) console.error("THREE.ExtrudeGeometry: vec does not exist");
+          return pt.clone().addScaledVector(vec, size);
+        }
+        const vlen = vertices.length;
+        function getBevelVec(inPt, inPrev, inNext) {
+          let v_trans_x, v_trans_y, shrink_by;
+          const v_prev_x = inPt.x - inPrev.x, v_prev_y = inPt.y - inPrev.y;
+          const v_next_x = inNext.x - inPt.x, v_next_y = inNext.y - inPt.y;
+          const v_prev_lensq = v_prev_x * v_prev_x + v_prev_y * v_prev_y;
+          const collinear0 = v_prev_x * v_next_y - v_prev_y * v_next_x;
+          if (Math.abs(collinear0) > Number.EPSILON) {
+            const v_prev_len = Math.sqrt(v_prev_lensq);
+            const v_next_len = Math.sqrt(v_next_x * v_next_x + v_next_y * v_next_y);
+            const ptPrevShift_x = inPrev.x - v_prev_y / v_prev_len;
+            const ptPrevShift_y = inPrev.y + v_prev_x / v_prev_len;
+            const ptNextShift_x = inNext.x - v_next_y / v_next_len;
+            const ptNextShift_y = inNext.y + v_next_x / v_next_len;
+            const sf = ((ptNextShift_x - ptPrevShift_x) * v_next_y - (ptNextShift_y - ptPrevShift_y) * v_next_x) / (v_prev_x * v_next_y - v_prev_y * v_next_x);
+            v_trans_x = ptPrevShift_x + v_prev_x * sf - inPt.x;
+            v_trans_y = ptPrevShift_y + v_prev_y * sf - inPt.y;
+            const v_trans_lensq = v_trans_x * v_trans_x + v_trans_y * v_trans_y;
+            if (v_trans_lensq <= 2) {
+              return new Vector2(v_trans_x, v_trans_y);
+            } else {
+              shrink_by = Math.sqrt(v_trans_lensq / 2);
+            }
+          } else {
+            let direction_eq = false;
+            if (v_prev_x > Number.EPSILON) {
+              if (v_next_x > Number.EPSILON) {
+                direction_eq = true;
+              }
+            } else {
+              if (v_prev_x < -Number.EPSILON) {
+                if (v_next_x < -Number.EPSILON) {
+                  direction_eq = true;
+                }
+              } else {
+                if (Math.sign(v_prev_y) === Math.sign(v_next_y)) {
+                  direction_eq = true;
+                }
+              }
+            }
+            if (direction_eq) {
+              v_trans_x = -v_prev_y;
+              v_trans_y = v_prev_x;
+              shrink_by = Math.sqrt(v_prev_lensq);
+            } else {
+              v_trans_x = v_prev_x;
+              v_trans_y = v_prev_y;
+              shrink_by = Math.sqrt(v_prev_lensq / 2);
+            }
+          }
+          return new Vector2(v_trans_x / shrink_by, v_trans_y / shrink_by);
+        }
+        const contourMovements = [];
+        for (let i = 0, il = contour.length, j = il - 1, k = i + 1; i < il; i++, j++, k++) {
+          if (j === il) j = 0;
+          if (k === il) k = 0;
+          contourMovements[i] = getBevelVec(contour[i], contour[j], contour[k]);
+        }
+        const holesMovements = [];
+        let oneHoleMovements, verticesMovements = contourMovements.concat();
+        for (let h = 0, hl = numHoles; h < hl; h++) {
+          const ahole = holes[h];
+          oneHoleMovements = [];
+          for (let i = 0, il = ahole.length, j = il - 1, k = i + 1; i < il; i++, j++, k++) {
+            if (j === il) j = 0;
+            if (k === il) k = 0;
+            oneHoleMovements[i] = getBevelVec(ahole[i], ahole[j], ahole[k]);
+          }
+          holesMovements.push(oneHoleMovements);
+          verticesMovements = verticesMovements.concat(oneHoleMovements);
+        }
+        let faces;
+        if (bevelSegments === 0) {
+          faces = ShapeUtils.triangulateShape(contour, holes);
+        } else {
+          const contractedContourVertices = [];
+          const expandedHoleVertices = [];
+          for (let b = 0; b < bevelSegments; b++) {
+            const t = b / bevelSegments;
+            const z = bevelThickness * Math.cos(t * Math.PI / 2);
+            const bs2 = bevelSize * Math.sin(t * Math.PI / 2) + bevelOffset;
+            for (let i = 0, il = contour.length; i < il; i++) {
+              const vert = scalePt2(contour[i], contourMovements[i], bs2);
+              v(vert.x, vert.y, -z);
+              if (t === 0) contractedContourVertices.push(vert);
+            }
+            for (let h = 0, hl = numHoles; h < hl; h++) {
+              const ahole = holes[h];
+              oneHoleMovements = holesMovements[h];
+              const oneHoleVertices = [];
+              for (let i = 0, il = ahole.length; i < il; i++) {
+                const vert = scalePt2(ahole[i], oneHoleMovements[i], bs2);
+                v(vert.x, vert.y, -z);
+                if (t === 0) oneHoleVertices.push(vert);
+              }
+              if (t === 0) expandedHoleVertices.push(oneHoleVertices);
+            }
+          }
+          faces = ShapeUtils.triangulateShape(contractedContourVertices, expandedHoleVertices);
+        }
+        const flen = faces.length;
+        const bs = bevelSize + bevelOffset;
+        for (let i = 0; i < vlen; i++) {
+          const vert = bevelEnabled ? scalePt2(vertices[i], verticesMovements[i], bs) : vertices[i];
+          if (!extrudeByPath) {
+            v(vert.x, vert.y, 0);
+          } else {
+            normal.copy(splineTube.normals[0]).multiplyScalar(vert.x);
+            binormal.copy(splineTube.binormals[0]).multiplyScalar(vert.y);
+            position2.copy(extrudePts[0]).add(normal).add(binormal);
+            v(position2.x, position2.y, position2.z);
+          }
+        }
+        for (let s = 1; s <= steps; s++) {
+          for (let i = 0; i < vlen; i++) {
+            const vert = bevelEnabled ? scalePt2(vertices[i], verticesMovements[i], bs) : vertices[i];
+            if (!extrudeByPath) {
+              v(vert.x, vert.y, depth / steps * s);
+            } else {
+              normal.copy(splineTube.normals[s]).multiplyScalar(vert.x);
+              binormal.copy(splineTube.binormals[s]).multiplyScalar(vert.y);
+              position2.copy(extrudePts[s]).add(normal).add(binormal);
+              v(position2.x, position2.y, position2.z);
+            }
+          }
+        }
+        for (let b = bevelSegments - 1; b >= 0; b--) {
+          const t = b / bevelSegments;
+          const z = bevelThickness * Math.cos(t * Math.PI / 2);
+          const bs2 = bevelSize * Math.sin(t * Math.PI / 2) + bevelOffset;
+          for (let i = 0, il = contour.length; i < il; i++) {
+            const vert = scalePt2(contour[i], contourMovements[i], bs2);
+            v(vert.x, vert.y, depth + z);
+          }
+          for (let h = 0, hl = holes.length; h < hl; h++) {
+            const ahole = holes[h];
+            oneHoleMovements = holesMovements[h];
+            for (let i = 0, il = ahole.length; i < il; i++) {
+              const vert = scalePt2(ahole[i], oneHoleMovements[i], bs2);
+              if (!extrudeByPath) {
+                v(vert.x, vert.y, depth + z);
+              } else {
+                v(vert.x, vert.y + extrudePts[steps - 1].y, extrudePts[steps - 1].x + z);
+              }
+            }
+          }
+        }
+        buildLidFaces();
+        buildSideFaces();
+        function buildLidFaces() {
+          const start2 = verticesArray.length / 3;
+          if (bevelEnabled) {
+            let layer = 0;
+            let offset = vlen * layer;
+            for (let i = 0; i < flen; i++) {
+              const face2 = faces[i];
+              f3(face2[2] + offset, face2[1] + offset, face2[0] + offset);
+            }
+            layer = steps + bevelSegments * 2;
+            offset = vlen * layer;
+            for (let i = 0; i < flen; i++) {
+              const face2 = faces[i];
+              f3(face2[0] + offset, face2[1] + offset, face2[2] + offset);
+            }
+          } else {
+            for (let i = 0; i < flen; i++) {
+              const face2 = faces[i];
+              f3(face2[2], face2[1], face2[0]);
+            }
+            for (let i = 0; i < flen; i++) {
+              const face2 = faces[i];
+              f3(face2[0] + vlen * steps, face2[1] + vlen * steps, face2[2] + vlen * steps);
+            }
+          }
+          scope.addGroup(start2, verticesArray.length / 3 - start2, 0);
+        }
+        function buildSideFaces() {
+          const start2 = verticesArray.length / 3;
+          let layeroffset = 0;
+          sidewalls(contour, layeroffset);
+          layeroffset += contour.length;
+          for (let h = 0, hl = holes.length; h < hl; h++) {
+            const ahole = holes[h];
+            sidewalls(ahole, layeroffset);
+            layeroffset += ahole.length;
+          }
+          scope.addGroup(start2, verticesArray.length / 3 - start2, 1);
+        }
+        function sidewalls(contour2, layeroffset) {
+          let i = contour2.length;
+          while (--i >= 0) {
+            const j = i;
+            let k = i - 1;
+            if (k < 0) k = contour2.length - 1;
+            for (let s = 0, sl = steps + bevelSegments * 2; s < sl; s++) {
+              const slen1 = vlen * s;
+              const slen2 = vlen * (s + 1);
+              const a = layeroffset + j + slen1, b = layeroffset + k + slen1, c = layeroffset + k + slen2, d = layeroffset + j + slen2;
+              f4(a, b, c, d);
+            }
+          }
+        }
+        function v(x, y, z) {
+          placeholder.push(x);
+          placeholder.push(y);
+          placeholder.push(z);
+        }
+        function f3(a, b, c) {
+          addVertex(a);
+          addVertex(b);
+          addVertex(c);
+          const nextIndex = verticesArray.length / 3;
+          const uvs = uvgen.generateTopUV(scope, verticesArray, nextIndex - 3, nextIndex - 2, nextIndex - 1);
+          addUV(uvs[0]);
+          addUV(uvs[1]);
+          addUV(uvs[2]);
+        }
+        function f4(a, b, c, d) {
+          addVertex(a);
+          addVertex(b);
+          addVertex(d);
+          addVertex(b);
+          addVertex(c);
+          addVertex(d);
+          const nextIndex = verticesArray.length / 3;
+          const uvs = uvgen.generateSideWallUV(scope, verticesArray, nextIndex - 6, nextIndex - 3, nextIndex - 2, nextIndex - 1);
+          addUV(uvs[0]);
+          addUV(uvs[1]);
+          addUV(uvs[3]);
+          addUV(uvs[1]);
+          addUV(uvs[2]);
+          addUV(uvs[3]);
+        }
+        function addVertex(index) {
+          verticesArray.push(placeholder[index * 3 + 0]);
+          verticesArray.push(placeholder[index * 3 + 1]);
+          verticesArray.push(placeholder[index * 3 + 2]);
+        }
+        function addUV(vector2) {
+          uvArray.push(vector2.x);
+          uvArray.push(vector2.y);
+        }
+      }
+    }
+    copy(source) {
+      super.copy(source);
+      this.parameters = Object.assign({}, source.parameters);
+      return this;
+    }
+    toJSON() {
+      const data = super.toJSON();
+      const shapes = this.parameters.shapes;
+      const options = this.parameters.options;
+      return toJSON$1(shapes, options, data);
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @param {Array<Shape>} shapes - An array of shapes.
+     * @return {ExtrudeGeometry} A new instance.
+     */
+    static fromJSON(data, shapes) {
+      const geometryShapes = [];
+      for (let j = 0, jl = data.shapes.length; j < jl; j++) {
+        const shape = shapes[data.shapes[j]];
+        geometryShapes.push(shape);
+      }
+      const extrudePath = data.options.extrudePath;
+      if (extrudePath !== void 0) {
+        data.options.extrudePath = new Curves[extrudePath.type]().fromJSON(extrudePath);
+      }
+      return new _ExtrudeGeometry(geometryShapes, data.options);
+    }
+  };
+  var WorldUVGenerator = {
+    generateTopUV: function(geometry, vertices, indexA, indexB, indexC) {
+      const a_x = vertices[indexA * 3];
+      const a_y = vertices[indexA * 3 + 1];
+      const b_x = vertices[indexB * 3];
+      const b_y = vertices[indexB * 3 + 1];
+      const c_x = vertices[indexC * 3];
+      const c_y = vertices[indexC * 3 + 1];
+      return [
+        new Vector2(a_x, a_y),
+        new Vector2(b_x, b_y),
+        new Vector2(c_x, c_y)
+      ];
+    },
+    generateSideWallUV: function(geometry, vertices, indexA, indexB, indexC, indexD) {
+      const a_x = vertices[indexA * 3];
+      const a_y = vertices[indexA * 3 + 1];
+      const a_z = vertices[indexA * 3 + 2];
+      const b_x = vertices[indexB * 3];
+      const b_y = vertices[indexB * 3 + 1];
+      const b_z = vertices[indexB * 3 + 2];
+      const c_x = vertices[indexC * 3];
+      const c_y = vertices[indexC * 3 + 1];
+      const c_z = vertices[indexC * 3 + 2];
+      const d_x = vertices[indexD * 3];
+      const d_y = vertices[indexD * 3 + 1];
+      const d_z = vertices[indexD * 3 + 2];
+      if (Math.abs(a_y - b_y) < Math.abs(a_x - b_x)) {
+        return [
+          new Vector2(a_x, 1 - a_z),
+          new Vector2(b_x, 1 - b_z),
+          new Vector2(c_x, 1 - c_z),
+          new Vector2(d_x, 1 - d_z)
+        ];
+      } else {
+        return [
+          new Vector2(a_y, 1 - a_z),
+          new Vector2(b_y, 1 - b_z),
+          new Vector2(c_y, 1 - c_z),
+          new Vector2(d_y, 1 - d_z)
+        ];
+      }
+    }
+  };
+  function toJSON$1(shapes, options, data) {
+    data.shapes = [];
+    if (Array.isArray(shapes)) {
+      for (let i = 0, l = shapes.length; i < l; i++) {
+        const shape = shapes[i];
+        data.shapes.push(shape.uuid);
+      }
+    } else {
+      data.shapes.push(shapes.uuid);
+    }
+    data.options = Object.assign({}, options);
+    if (options.extrudePath !== void 0) data.options.extrudePath = options.extrudePath.toJSON();
+    return data;
+  }
   var IcosahedronGeometry = class _IcosahedronGeometry extends PolyhedronGeometry {
     /**
      * Constructs a new icosahedron geometry.
@@ -17492,6 +17930,78 @@
      */
     static fromJSON(data) {
       return new _IcosahedronGeometry(data.radius, data.detail);
+    }
+  };
+  var OctahedronGeometry = class _OctahedronGeometry extends PolyhedronGeometry {
+    /**
+     * Constructs a new octahedron geometry.
+     *
+     * @param {number} [radius=1] - Radius of the octahedron.
+     * @param {number} [detail=0] - Setting this to a value greater than `0` adds vertices making it no longer a octahedron.
+     */
+    constructor(radius = 1, detail = 0) {
+      const vertices = [
+        1,
+        0,
+        0,
+        -1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        -1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        -1
+      ];
+      const indices = [
+        0,
+        2,
+        4,
+        0,
+        4,
+        3,
+        0,
+        3,
+        5,
+        0,
+        5,
+        2,
+        1,
+        2,
+        5,
+        1,
+        5,
+        3,
+        1,
+        3,
+        4,
+        1,
+        4,
+        2
+      ];
+      super(vertices, indices, radius, detail);
+      this.type = "OctahedronGeometry";
+      this.parameters = {
+        radius,
+        detail
+      };
+    }
+    /**
+     * Factory method for creating an instance of this class from the given
+     * JSON object.
+     *
+     * @param {Object} data - A JSON object representing the serialized geometry.
+     * @return {OctahedronGeometry} A new instance.
+     */
+    static fromJSON(data) {
+      return new _OctahedronGeometry(data.radius, data.detail);
     }
   };
   var PlaneGeometry = class _PlaneGeometry extends BufferGeometry {
@@ -34095,8 +34605,14 @@ void main() {
   var R = 10.5;
   var audioCtx = null;
   var audioMaster = null;
+  var musicMaster = null;
+  var audioLimiter = null;
+  var musicTimer = null;
+  var musicStep = 0;
   var masterLevel = Math.max(0, Math.min(1, Number(localStorage.getItem("bpVolume") ?? 0.65)));
+  var musicLevel = Math.max(0, Math.min(1, Number(localStorage.getItem("bpMusicVolume") ?? 0.35)));
   var soundEnabled = localStorage.getItem("bpSound") !== "off" && masterLevel > 0;
+  var musicEnabled = localStorage.getItem("bpMusic") !== "off" && musicLevel > 0;
   var lastStepBeat = -1;
   var soundCount = 0;
   var soundStatus = document.querySelector("#sound-status");
@@ -34108,34 +34624,85 @@ void main() {
     showSoundStatus.timer = setTimeout(() => soundStatus.classList.remove("visible"), 1700);
   }
   async function ensureAudioContext() {
-    if (!soundEnabled || masterLevel <= 0) {
+    if (!soundEnabled && !musicEnabled) {
       document.documentElement.dataset.audio = "off";
       return false;
     }
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       audioMaster = audioCtx.createGain();
-      audioMaster.gain.value = masterLevel * 3.2;
-      const limiter = audioCtx.createDynamicsCompressor();
-      limiter.threshold.value = -10;
-      limiter.knee.value = 8;
-      limiter.ratio.value = 8;
-      limiter.attack.value = 3e-3;
-      limiter.release.value = 0.16;
-      audioMaster.connect(limiter).connect(audioCtx.destination);
-    } else audioMaster.gain.setTargetAtTime(masterLevel * 3.2, audioCtx.currentTime, 0.025);
+      musicMaster = audioCtx.createGain();
+      audioLimiter = audioCtx.createDynamicsCompressor();
+      audioLimiter.threshold.value = -10;
+      audioLimiter.knee.value = 8;
+      audioLimiter.ratio.value = 8;
+      audioLimiter.attack.value = 3e-3;
+      audioLimiter.release.value = 0.16;
+      audioMaster.connect(audioLimiter);
+      musicMaster.connect(audioLimiter);
+      audioLimiter.connect(audioCtx.destination);
+    }
+    audioMaster.gain.setTargetAtTime(soundEnabled ? masterLevel * 3.2 : 0, audioCtx.currentTime, 0.025);
+    musicMaster.gain.setTargetAtTime(musicEnabled ? musicLevel * 1.35 : 0, audioCtx.currentTime, 0.08);
     if (audioCtx.state === "suspended") await audioCtx.resume();
     document.documentElement.dataset.audio = audioCtx.state;
     return audioCtx.state === "running";
   }
+  function playMusicNote() {
+    if (!musicEnabled || !audioCtx || audioCtx.state !== "running" || !musicMaster) return;
+    const melody = [261.63, 329.63, 392, 329.63, 293.66, 349.23, 440, 349.23], bass = [130.81, 146.83, 174.61, 146.83], now = audioCtx.currentTime, n = melody[musicStep % melody.length], o = audioCtx.createOscillator(), shimmer = audioCtx.createOscillator(), g = audioCtx.createGain(), sg = audioCtx.createGain();
+    o.type = "triangle";
+    o.frequency.value = n;
+    shimmer.type = "sine";
+    shimmer.frequency.value = n * 2;
+    g.gain.setValueAtTime(1e-4, now);
+    g.gain.exponentialRampToValueAtTime(0.13, now + 0.025);
+    g.gain.exponentialRampToValueAtTime(1e-4, now + 0.48);
+    sg.gain.setValueAtTime(1e-4, now);
+    sg.gain.exponentialRampToValueAtTime(0.032, now + 0.02);
+    sg.gain.exponentialRampToValueAtTime(1e-4, now + 0.25);
+    o.connect(g).connect(musicMaster);
+    shimmer.connect(sg).connect(musicMaster);
+    o.start(now);
+    shimmer.start(now);
+    o.stop(now + 0.52);
+    shimmer.stop(now + 0.28);
+    if (musicStep % 2 === 0) {
+      const b = audioCtx.createOscillator(), bg = audioCtx.createGain();
+      b.type = "sine";
+      b.frequency.value = bass[musicStep / 2 % bass.length | 0];
+      bg.gain.setValueAtTime(1e-4, now);
+      bg.gain.exponentialRampToValueAtTime(0.075, now + 0.04);
+      bg.gain.exponentialRampToValueAtTime(1e-4, now + 0.66);
+      b.connect(bg).connect(musicMaster);
+      b.start(now);
+      b.stop(now + 0.7);
+    }
+    musicStep++;
+    document.documentElement.dataset.music = "playing";
+    document.documentElement.dataset.musicLevel = String(musicLevel);
+  }
+  function startMusicLoop() {
+    if (!musicEnabled || musicTimer) return;
+    playMusicNote();
+    musicTimer = setInterval(playMusicNote, 560);
+  }
+  function stopMusicLoop() {
+    if (musicTimer) {
+      clearInterval(musicTimer);
+      musicTimer = null;
+    }
+    document.documentElement.dataset.music = "off";
+  }
   async function startAudio() {
     const live = await ensureAudioContext();
     if (!live) {
-      showSoundStatus("\u{1F507} Sound off");
+      showSoundStatus("\u{1F507} Audio off");
       return;
     }
-    playCue("start");
-    showSoundStatus(`\u{1F50A} Sound ${Math.round(masterLevel * 100)}%`);
+    if (soundEnabled) playCue("start");
+    if (musicEnabled) startMusicLoop();
+    showSoundStatus(`\u{1F50A} Effects ${Math.round(masterLevel * 100)}% \xB7 Music ${Math.round(musicLevel * 100)}%`);
   }
   function tone(freq, duration = 0.12, type = "sine", volume = 0.18, slide = 1) {
     if (!soundEnabled || !audioCtx || audioCtx.state !== "running") return;
@@ -34201,30 +34768,108 @@ void main() {
     } else if (name === "step") {
       noise(0.035, 0.026, 360);
       tone(78, 0.035, "sine", 0.032, 0.8);
+    } else if (name === "coconut") {
+      noise(0.12, 0.045, 720);
+      tone(170, 0.13, "triangle", 0.07, 0.75);
+    } else if (name === "hiveWarning") {
+      tone(145, 0.22, "sawtooth", 0.035, 1.18);
+    } else if (name === "yell") {
+      tone(260, 0.1, "sawtooth", 0.12, 1.35);
+      setTimeout(() => tone(190, 0.18, "square", 0.09, 0.7), 90);
+    } else if (name === "stomp") {
+      noise(0.1, 0.08, 360);
+      tone(72, 0.14, "triangle", 0.12, 0.62);
     }
+  }
+  var lastRustle = 0;
+  function playRustle(intensity) {
+    const now = performance.now();
+    if (!soundEnabled || !audioCtx || audioCtx.state !== "running" || now - lastRustle < 170) return;
+    lastRustle = now;
+    noise(0.09, 0.012 + Math.min(1, intensity) * 0.032, 900 + intensity * 850);
+  }
+  function startFallWhistle(drop) {
+    if (!soundEnabled || !audioCtx || audioCtx.state !== "running") return;
+    const danger = ["rock", "log", "bomb", "hive"].includes(drop.type), now = audioCtx.currentTime, o = audioCtx.createOscillator(), air = audioCtx.createOscillator(), g = audioCtx.createGain(), filter = audioCtx.createBiquadFilter();
+    o.type = "sine";
+    air.type = "sine";
+    const base = danger ? 2250 : 2550;
+    o.frequency.value = base;
+    air.frequency.value = base * 1.018;
+    filter.type = "bandpass";
+    filter.frequency.value = base * 1.12;
+    filter.Q.value = 5.2;
+    g.gain.value = 1e-4;
+    o.connect(filter);
+    air.connect(filter);
+    filter.connect(g).connect(audioMaster);
+    o.start(now);
+    air.start(now);
+    g.gain.exponentialRampToValueAtTime(danger ? 0.028 : 0.012, now + 0.1);
+    drop.whistle = { o, air, g, filter, danger, stopped: false };
+    document.documentElement.dataset.lastWhistle = drop.type;
+  }
+  var whistleWorldPosition = new Vector3();
+  function updateFallWhistle(drop) {
+    const w = drop.whistle;
+    if (!w || w.stopped || !audioCtx) return;
+    const now = audioCtx.currentTime, speed = Math.min(1.4, drop.vy), frequency = Math.max(w.danger ? 820 : 1020, (w.danger ? 2420 : 2720) - speed * (w.danger ? 1080 : 1200));
+    drop.g.getWorldPosition(whistleWorldPosition);
+    const distance = camera.position.distanceTo(whistleWorldPosition), proximity = MathUtils.clamp(1 - (distance - 1.1) / 10.5, 0, 1), distanceGain = 0.18 + Math.pow(proximity, 1.35) * 0.82, baseGain = (w.danger ? 0.014 : 5e-3) + speed * (w.danger ? 0.018 : 8e-3);
+    w.o.frequency.setTargetAtTime(frequency, now, 0.055);
+    w.air.frequency.setTargetAtTime(frequency * 1.018, now, 0.06);
+    w.filter.frequency.setTargetAtTime(frequency * (0.72 + proximity * 0.4), now, 0.065);
+    w.g.gain.setTargetAtTime(baseGain * distanceGain, now, 0.055);
+    document.documentElement.dataset.whistleDistance = distance.toFixed(1);
+    document.documentElement.dataset.whistleGain = distanceGain.toFixed(2);
+  }
+  function stopFallWhistle(drop) {
+    const w = drop.whistle;
+    if (!w || w.stopped || !audioCtx) return;
+    w.stopped = true;
+    const now = audioCtx.currentTime;
+    w.g.gain.cancelScheduledValues(now);
+    w.g.gain.setValueAtTime(Math.max(1e-4, w.g.gain.value), now);
+    w.g.gain.exponentialRampToValueAtTime(1e-4, now + 0.12);
+    w.o.stop(now + 0.14);
+    w.air.stop(now + 0.14);
   }
   addEventListener("bp-sound", (e) => {
     soundEnabled = !!e.detail;
     localStorage.setItem("bpSound", soundEnabled ? "on" : "off");
     if (soundEnabled) startAudio();
-    else {
-      document.documentElement.dataset.audio = "off";
-      showSoundStatus("\u{1F507} Sound off");
-      if (audioCtx) audioCtx.suspend();
-    }
+    else if (audioMaster && audioCtx) audioMaster.gain.setTargetAtTime(0, audioCtx.currentTime, 0.025);
   });
   addEventListener("bp-volume", (e) => {
     masterLevel = Math.max(0, Math.min(1, Number(e.detail)));
     localStorage.setItem("bpVolume", String(masterLevel));
     soundEnabled = masterLevel > 0;
     localStorage.setItem("bpSound", soundEnabled ? "on" : "off");
-    if (audioMaster && audioCtx) audioMaster.gain.setTargetAtTime(masterLevel * 3.2, audioCtx.currentTime, 0.025);
+    if (audioMaster && audioCtx) audioMaster.gain.setTargetAtTime(soundEnabled ? masterLevel * 3.2 : 0, audioCtx.currentTime, 0.025);
     if (soundEnabled) ensureAudioContext();
-    else {
-      document.documentElement.dataset.audio = "off";
-      showSoundStatus("\u{1F507} Sound off");
-      if (audioCtx) audioCtx.suspend();
+  });
+  addEventListener("bp-music", (e) => {
+    musicEnabled = !!e.detail;
+    localStorage.setItem("bpMusic", musicEnabled ? "on" : "off");
+    if (musicEnabled) {
+      ensureAudioContext().then((ok) => {
+        if (ok) startMusicLoop();
+      });
+    } else {
+      stopMusicLoop();
+      if (musicMaster && audioCtx) musicMaster.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
     }
+  });
+  addEventListener("bp-music-volume", (e) => {
+    musicLevel = Math.max(0, Math.min(1, Number(e.detail)));
+    localStorage.setItem("bpMusicVolume", String(musicLevel));
+    musicEnabled = musicLevel > 0;
+    localStorage.setItem("bpMusic", musicEnabled ? "on" : "off");
+    if (musicMaster && audioCtx) musicMaster.gain.setTargetAtTime(musicEnabled ? musicLevel * 1.35 : 0, audioCtx.currentTime, 0.08);
+    if (musicEnabled) ensureAudioContext().then((ok) => {
+      if (ok) startMusicLoop();
+    });
+    else stopMusicLoop();
   });
   var renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -34241,7 +34886,8 @@ void main() {
   var CAMERA_LOOK = new Vector3(0, 25, 0);
   camera.lookAt(CAMERA_LOOK);
   var CLOSE_CAMERA_POSITION = camera.position.clone();
-  var cameraZoom = 0;
+  var cameraZoom = 0.14;
+  var groundDetailMaterial = null;
   camera.updateProjectionMatrix();
   camera.projectionMatrix.elements[9] = 0.5;
   camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
@@ -34261,6 +34907,7 @@ void main() {
     camera.projectionMatrix.elements[9] = 0.5;
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
     scene.fog.density = MathUtils.lerp(0.019, 38e-4, blend);
+    if (groundDetailMaterial) groundDetailMaterial.opacity = MathUtils.lerp(0.72, 0.08, blend);
     document.documentElement.dataset.zoom = (cameraZoom * 100).toFixed(0);
   }
   function resizeGame() {
@@ -34297,15 +34944,32 @@ void main() {
   scene.add(faceFill);
   var world = new Group();
   scene.add(world);
-  var groundTexture = new TextureLoader().load("assets/jungle-ground-v2.png");
+  var groundTexture = new TextureLoader().load("assets/mossy-globe-ground-v1.png");
   groundTexture.colorSpace = SRGBColorSpace;
   groundTexture.wrapS = groundTexture.wrapT = RepeatWrapping;
-  groundTexture.repeat.set(8, 5);
+  groundTexture.repeat.set(1.72, 1.38);
+  groundTexture.offset.set(0.137, 0.083);
   groundTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  var globeMat = new MeshPhysicalMaterial({ color: 12904316, map: groundTexture, bumpMap: groundTexture, bumpScale: 0.072, roughness: 0.96, metalness: 0, clearcoat: 0.018, clearcoatRoughness: 0.94 });
+  groundTexture.magFilter = LinearFilter;
+  groundTexture.minFilter = LinearMipmapLinearFilter;
+  var globeMat = new MeshPhysicalMaterial({ color: 12443547, map: groundTexture, bumpMap: groundTexture, bumpScale: 0.052, roughness: 0.94, metalness: 0, clearcoat: 0.02, clearcoatRoughness: 0.92 });
   var globe = new Mesh(new SphereGeometry(R, 96, 64), globeMat);
+  globe.rotation.x = 0.28;
   globe.receiveShadow = true;
   world.add(globe);
+  var groundDetailTexture = groundTexture.clone();
+  groundDetailTexture.needsUpdate = true;
+  groundDetailTexture.wrapS = groundDetailTexture.wrapT = RepeatWrapping;
+  groundDetailTexture.repeat.set(4.6, 3.4);
+  groundDetailTexture.offset.set(0.271, 0.193);
+  groundDetailTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  groundDetailTexture.minFilter = LinearMipmapLinearFilter;
+  groundDetailTexture.magFilter = LinearFilter;
+  groundDetailMaterial = new MeshPhysicalMaterial({ color: 12180875, map: groundDetailTexture, bumpMap: groundDetailTexture, bumpScale: 0.034, roughness: 0.92, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  var groundDetail = new Mesh(new SphereGeometry(R + 4e-3, 96, 64), groundDetailMaterial);
+  groundDetail.rotation.copy(globe.rotation);
+  groundDetail.receiveShadow = false;
+  world.add(groundDetail);
   var atmosphere = new Mesh(new SphereGeometry(R * 1.016, 64, 40), new MeshBasicMaterial({ color: 10348485, transparent: true, opacity: 0.105, side: BackSide, blending: AdditiveBlending }));
   world.add(atmosphere);
   function loadSurfaceTexture(path, repeatX = 2, repeatY = 2) {
@@ -34322,13 +34986,14 @@ void main() {
   var rockTexture = loadSurfaceTexture("assets/jungle-rock-v2.png", 2.5, 2.5);
   var dirtTexture = loadSurfaceTexture("assets/jungle-dirt-v2.png", 2, 2);
   leafTexture2.needsUpdate = true;
-  var brown = new MeshPhysicalMaterial({ color: 16769725, map: barkTexture, bumpMap: barkTexture, bumpScale: 0.045, roughness: 0.9, clearcoat: 0.04, clearcoatRoughness: 0.85 });
-  var bark = new MeshPhysicalMaterial({ color: 16768432, map: barkTexture, bumpMap: barkTexture, bumpScale: 0.065, roughness: 0.94, clearcoat: 0.025, clearcoatRoughness: 0.9 });
-  var leaf = new MeshPhysicalMaterial({ color: 14679996, map: leafTexture, bumpMap: leafTexture, bumpScale: 0.026, roughness: 0.76, clearcoat: 0.12, clearcoatRoughness: 0.7, side: DoubleSide });
-  var leaf2 = new MeshPhysicalMaterial({ color: 15794119, map: leafTexture2, bumpMap: leafTexture2, bumpScale: 0.022, roughness: 0.72, clearcoat: 0.14, clearcoatRoughness: 0.66, side: DoubleSide });
+  var brown = new MeshPhysicalMaterial({ color: 12086065, map: barkTexture, bumpMap: barkTexture, bumpScale: 0.045, roughness: 0.9, clearcoat: 0.04, clearcoatRoughness: 0.85 });
+  var bark = new MeshPhysicalMaterial({ color: 11099179, map: barkTexture, bumpMap: barkTexture, bumpScale: 0.065, roughness: 0.94, clearcoat: 0.025, clearcoatRoughness: 0.9 });
+  var leaf = new MeshPhysicalMaterial({ color: 8825133, map: leafTexture, bumpMap: leafTexture, bumpScale: 0.018, roughness: 0.72, clearcoat: 0.16, clearcoatRoughness: 0.66, side: DoubleSide });
+  var leaf2 = new MeshPhysicalMaterial({ color: 11060283, map: leafTexture2, bumpMap: leafTexture2, bumpScale: 0.016, roughness: 0.68, clearcoat: 0.18, clearcoatRoughness: 0.62, side: DoubleSide });
   var rockMat = new MeshPhysicalMaterial({ color: 15196107, map: rockTexture, bumpMap: rockTexture, bumpScale: 0.075, roughness: 0.93, flatShading: true, clearcoat: 0.035, clearcoatRoughness: 0.9 });
   var moss = new MeshStandardMaterial({ color: 7445061, map: leafTexture2, bumpMap: leafTexture2, bumpScale: 0.025, roughness: 1 });
-  var pathMat = new MeshStandardMaterial({ color: 16768949, map: dirtTexture, bumpMap: dirtTexture, bumpScale: 0.035, roughness: 0.98, transparent: true, opacity: 0.94 });
+  var pathMat = new MeshStandardMaterial({ color: 10118455, map: dirtTexture, bumpMap: dirtTexture, bumpScale: 0.05, roughness: 0.98, transparent: true, opacity: 0.9 });
+  var pathDarkMat = new MeshStandardMaterial({ color: 6635814, map: dirtTexture, bumpMap: dirtTexture, bumpScale: 0.065, roughness: 1, transparent: true, opacity: 0.76 });
   var modelTemplates = /* @__PURE__ */ new Map();
   var modelSlots = /* @__PURE__ */ new Map([["Palm", []], ["Rock", []], ["Log", []]]);
   function applyModelAsset(slot, name) {
@@ -34370,19 +35035,40 @@ void main() {
     document.documentElement.dataset.jungleAssets = "fallback";
   });
   var props = [];
+  var foliageDecor = [];
+  var foliageCullFrame = 0;
   var MAX_LANDED_PROPS = 40;
   var landedProps = [];
+  function removeLandedProp(entry) {
+    const landedIndex = landedProps.indexOf(entry), propIndex = props.indexOf(entry);
+    if (landedIndex >= 0) landedProps.splice(landedIndex, 1);
+    if (propIndex >= 0) props.splice(propIndex, 1);
+    world.remove(entry.group);
+  }
   function addLandedProp(entry) {
+    entry.groundTime = 0;
+    entry.life = 6;
     props.push(entry);
     landedProps.push(entry);
-    if (landedProps.length > MAX_LANDED_PROPS) {
-      const old = landedProps.shift();
-      const idx = props.indexOf(old);
-      if (idx >= 0) props.splice(idx, 1);
-      world.remove(old.group);
-      old.group.traverse((m) => {
-        if (m.isMesh) m.geometry && m.geometry.dispose();
-      });
+    if (landedProps.length > MAX_LANDED_PROPS) removeLandedProp(landedProps[0]);
+  }
+  function updateLandedProps(dt) {
+    for (let i = landedProps.length - 1; i >= 0; i--) {
+      const p = landedProps[i];
+      p.groundTime += dt;
+      if (p.kind === "log" && p.rollDirection && p.groundTime < 1.8) {
+        const speed = 0.17 * (1 - p.groundTime / 1.8), step = speed * dt, axis = new Vector3().crossVectors(p.n, p.rollDirection).normalize();
+        p.n.applyAxisAngle(axis, step).normalize();
+        p.rollDirection.addScaledVector(p.n, -p.rollDirection.dot(p.n)).normalize();
+        p.rollAngle += step / 0.09;
+        const logAxis = new Vector3().crossVectors(p.n, p.rollDirection).normalize(), basis = new Matrix4().makeBasis(logAxis, p.n, p.rollDirection);
+        p.group.position.copy(p.n).multiplyScalar(R + 0.015);
+        p.group.quaternion.setFromRotationMatrix(basis);
+        p.group.rotateX(p.rollAngle);
+      }
+      p.group.visible = p.groundTime < 5.15 || Math.floor((p.groundTime - 5.15) * 12) % 2 === 0;
+      if (p.baseScale && p.groundTime > 5.15) p.group.scale.copy(p.baseScale).multiplyScalar(Math.max(0.05, 1 - (p.groundTime - 5.15) / 0.85));
+      if (p.groundTime >= p.life) removeLandedProp(p);
     }
   }
   var UP = new Vector3(0, 1, 0);
@@ -34404,6 +35090,263 @@ void main() {
     });
     return o;
   }
+  var referenceFrondShape = new Shape();
+  referenceFrondShape.moveTo(0, 0);
+  for (const p of [[-0.055, 0.08], [-0.1, 0.16], [-0.085, 0.23], [-0.135, 0.32], [-0.112, 0.4], [-0.155, 0.5], [-0.125, 0.58], [-0.145, 0.68], [-0.105, 0.76], [-0.115, 0.84], [-0.055, 0.91], [0, 1.04], [0.055, 0.91], [0.115, 0.84], [0.105, 0.76], [0.145, 0.68], [0.125, 0.58], [0.155, 0.5], [0.112, 0.4], [0.135, 0.32], [0.085, 0.23], [0.1, 0.16], [0.055, 0.08]]) referenceFrondShape.lineTo(p[0], p[1]);
+  referenceFrondShape.closePath();
+  function makePalmLeafTexture() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const x = c.getContext("2d"), grad = x.createLinearGradient(0, 256, 0, 0);
+    grad.addColorStop(0, "#274b19");
+    grad.addColorStop(0.46, "#4f7520");
+    grad.addColorStop(1, "#78952e");
+    x.fillStyle = grad;
+    x.fillRect(0, 0, 256, 256);
+    x.strokeStyle = "rgba(24,55,14,.78)";
+    x.lineWidth = 7;
+    x.beginPath();
+    x.moveTo(128, 256);
+    x.lineTo(128, 0);
+    x.stroke();
+    x.lineWidth = 3;
+    for (let y = 34; y < 235; y += 25) {
+      const half = 42 + Math.sin(y * 0.07) * 10;
+      x.beginPath();
+      x.moveTo(128, y + 13);
+      x.lineTo(128 - half, y - 8);
+      x.moveTo(128, y + 13);
+      x.lineTo(128 + half, y - 8);
+      x.stroke();
+    }
+    x.strokeStyle = "rgba(181,207,83,.2)";
+    x.lineWidth = 2;
+    for (let y = 18; y < 240; y += 31) {
+      x.beginPath();
+      x.moveTo(132, y + 18);
+      x.lineTo(205, y);
+      x.stroke();
+    }
+    const tex = new CanvasTexture(c);
+    tex.colorSpace = SRGBColorSpace;
+    return tex;
+  }
+  function makeCoconutHuskTexture() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 192;
+    const x = c.getContext("2d"), grad = x.createRadialGradient(65, 45, 8, 96, 96, 118);
+    grad.addColorStop(0, "#b0a84c");
+    grad.addColorStop(0.48, "#6f7b2b");
+    grad.addColorStop(1, "#3e451d");
+    x.fillStyle = grad;
+    x.fillRect(0, 0, 192, 192);
+    for (let i = 0; i < 38; i++) {
+      x.strokeStyle = `rgba(${72 + i % 3 * 18},${55 + i % 4 * 9},${21 + i % 2 * 8},${0.12 + i % 5 * 0.025})`;
+      x.lineWidth = 1 + i % 3;
+      x.beginPath();
+      const px2 = i * 47 % 192;
+      x.moveTo(px2, 0);
+      x.bezierCurveTo(px2 + 18 * Math.sin(i), 55, px2 - 13 * Math.cos(i * 0.7), 135, px2 + 8, 192);
+      x.stroke();
+    }
+    const tex = new CanvasTexture(c);
+    tex.colorSpace = SRGBColorSpace;
+    return tex;
+  }
+  var palmLeafTexture = makePalmLeafTexture();
+  var coconutHuskTexture = makeCoconutHuskTexture();
+  var referenceFrondGeo = new ExtrudeGeometry(referenceFrondShape, { depth: 0.026, bevelEnabled: true, bevelSegments: 2, bevelSize: 0.01, bevelThickness: 9e-3 });
+  {
+    const pos = referenceFrondGeo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const y = MathUtils.clamp(pos.getY(i), 0, 1.04), u = y / 1.04, x = pos.getX(i), edge = Math.min(1, Math.abs(x) / 0.16);
+      pos.setZ(i, pos.getZ(i) + Math.sin(u * Math.PI) * 0.055 - u * u * 0.095 + edge * 0.012);
+    }
+    pos.needsUpdate = true;
+    referenceFrondGeo.computeVertexNormals();
+    referenceFrondGeo.computeBoundingSphere();
+  }
+  var palmLeafDark = new MeshPhysicalMaterial({ color: 5469469, map: palmLeafTexture, bumpMap: palmLeafTexture, bumpScale: 0.018, roughness: 0.78, clearcoat: 0.08, clearcoatRoughness: 0.76, sheen: 0.12, sheenColor: new Color(7902514), side: DoubleSide });
+  var palmLeafLight = new MeshPhysicalMaterial({ color: 7904040, map: palmLeafTexture, bumpMap: palmLeafTexture, bumpScale: 0.015, roughness: 0.74, clearcoat: 0.1, clearcoatRoughness: 0.72, sheen: 0.16, sheenColor: new Color(10795344), side: DoubleSide });
+  var palmVeinMat = new MeshStandardMaterial({ color: 3758356, roughness: 0.9 });
+  function enhancePalmCrown(crown) {
+    if (crown.userData.referenceEnhanced) return;
+    crown.userData.referenceEnhanced = true;
+    for (const child of crown.children) if (child.name.startsWith("Frond_")) child.visible = false;
+    const layered = new Group();
+    layered.name = "ReferenceFronds";
+    for (let i = 0; i < 19; i++) {
+      const lower = i < 11, count = lower ? 11 : 8, j = lower ? i : i - 11, a = j / count * Math.PI * 2 + (lower ? 0 : 0.17), frond = new Group(), blade = new Mesh(referenceFrondGeo, i % 3 ? palmLeafDark : palmLeafLight);
+      blade.castShadow = true;
+      blade.receiveShadow = true;
+      frond.add(blade);
+      const vein = new Mesh(new CylinderGeometry(0.011, 0.017, 0.91, 6), palmVeinMat);
+      vein.position.set(0, 0.455, 0.026);
+      frond.add(vein);
+      frond.rotation.order = "YXZ";
+      frond.rotation.y = -a;
+      frond.rotation.x = lower ? -0.98 - i % 3 * 0.06 : -0.58 - i % 2 * 0.08;
+      frond.rotation.z = (i % 2 ? 0.08 : -0.08) + (i % 4 - 1.5) * 0.025;
+      const length = lower ? 0.98 + i % 4 * 0.06 : 0.72 + i % 3 * 0.055;
+      frond.scale.set(lower ? 1.04 : 0.9, length, 1);
+      layered.add(frond);
+    }
+    crown.add(layered);
+  }
+  function makeJungleLeafTexture() {
+    const c = document.createElement("canvas");
+    c.width = 192;
+    c.height = 256;
+    const x = c.getContext("2d"), grad = x.createLinearGradient(0, 256, 0, 0);
+    grad.addColorStop(0, "#214518");
+    grad.addColorStop(0.48, "#4e7d26");
+    grad.addColorStop(1, "#88a83c");
+    x.fillStyle = grad;
+    x.fillRect(0, 0, 192, 256);
+    x.strokeStyle = "rgba(25,58,17,.82)";
+    x.lineWidth = 7;
+    x.beginPath();
+    x.moveTo(96, 256);
+    x.lineTo(96, 0);
+    x.stroke();
+    for (let y = 28; y < 235; y += 24) {
+      const width = 70 * Math.sin(y / 256 * Math.PI);
+      x.lineWidth = 2.4;
+      x.beginPath();
+      x.moveTo(96, y + 10);
+      x.lineTo(96 - width, y - 7);
+      x.moveTo(96, y + 10);
+      x.lineTo(96 + width, y - 7);
+      x.stroke();
+    }
+    for (let i = 0; i < 70; i++) {
+      x.fillStyle = `rgba(${125 + i % 3 * 18},${153 + i % 4 * 12},${48 + i % 2 * 9},${0.035 + i % 5 * 0.012})`;
+      x.beginPath();
+      x.arc(i * 71 % 192, i * 43 % 256, 1 + i % 3, 0, Math.PI * 2);
+      x.fill();
+    }
+    const tex = new CanvasTexture(c);
+    tex.colorSpace = SRGBColorSpace;
+    return tex;
+  }
+  var jungleLeafShape = new Shape();
+  jungleLeafShape.moveTo(0, 0);
+  for (let i = 1; i <= 10; i++) {
+    const y = i / 10, width = Math.sin(y * Math.PI) * (0.18 - i % 2 * 0.018);
+    jungleLeafShape.lineTo(-width, y);
+  }
+  jungleLeafShape.lineTo(0, 1.08);
+  for (let i = 9; i >= 1; i--) {
+    const y = i / 10, width = Math.sin(y * Math.PI) * (0.18 - i % 2 * 0.018);
+    jungleLeafShape.lineTo(width, y);
+  }
+  jungleLeafShape.closePath();
+  var jungleLeafGeometry = new ExtrudeGeometry(jungleLeafShape, { depth: 0.018, bevelEnabled: true, bevelSegments: 1, bevelSize: 8e-3, bevelThickness: 7e-3 });
+  {
+    const pos = jungleLeafGeometry.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const y = MathUtils.clamp(pos.getY(i), 0, 1.08), u = y / 1.08, x = pos.getX(i);
+      pos.setZ(i, pos.getZ(i) + Math.sin(u * Math.PI) * 0.045 + Math.abs(x) * 0.035 - u * u * 0.035);
+    }
+    pos.needsUpdate = true;
+    jungleLeafGeometry.computeVertexNormals();
+  }
+  var jungleLeafTexture = makeJungleLeafTexture();
+  var jungleLeafDark = new MeshPhysicalMaterial({ color: 4812581, map: jungleLeafTexture, bumpMap: jungleLeafTexture, bumpScale: 0.018, roughness: 0.8, clearcoat: 0.06, clearcoatRoughness: 0.82, sheen: 0.1, sheenColor: new Color(7903299), side: DoubleSide });
+  var jungleLeafLight = new MeshPhysicalMaterial({ color: 7443764, map: jungleLeafTexture, bumpMap: jungleLeafTexture, bumpScale: 0.014, roughness: 0.76, clearcoat: 0.08, clearcoatRoughness: 0.78, sheen: 0.15, sheenColor: new Color(10729818), side: DoubleSide });
+  function makeBushLeafTexture() {
+    const c = document.createElement("canvas");
+    c.width = 256;
+    c.height = 384;
+    const x = c.getContext("2d"), grad = x.createLinearGradient(0, 384, 256, 0);
+    grad.addColorStop(0, "#173812");
+    grad.addColorStop(0.34, "#2e691e");
+    grad.addColorStop(0.72, "#5e982f");
+    grad.addColorStop(1, "#9ac64c");
+    x.fillStyle = grad;
+    x.fillRect(0, 0, 256, 384);
+    const shine = x.createLinearGradient(0, 0, 256, 0);
+    shine.addColorStop(0, "rgba(205,240,132,.03)");
+    shine.addColorStop(0.38, "rgba(224,251,156,.22)");
+    shine.addColorStop(0.62, "rgba(255,255,210,.08)");
+    shine.addColorStop(1, "rgba(12,48,12,.18)");
+    x.fillStyle = shine;
+    x.fillRect(0, 0, 256, 384);
+    x.strokeStyle = "rgba(164,207,74,.95)";
+    x.lineWidth = 9;
+    x.beginPath();
+    x.moveTo(128, 384);
+    x.quadraticCurveTo(132, 205, 128, 3);
+    x.stroke();
+    for (let y = 42; y < 357; y += 31) {
+      const w = 91 * Math.sin(y / 384 * Math.PI);
+      x.strokeStyle = "rgba(42,91,28,.72)";
+      x.lineWidth = 3;
+      x.beginPath();
+      x.moveTo(128, y + 14);
+      x.quadraticCurveTo(91, y + 1, 128 - w, y - 14);
+      x.moveTo(128, y + 14);
+      x.quadraticCurveTo(165, y + 1, 128 + w, y - 14);
+      x.stroke();
+      x.strokeStyle = "rgba(190,226,105,.16)";
+      x.lineWidth = 1.5;
+      x.beginPath();
+      x.moveTo(128, y + 10);
+      x.lineTo(128 - w * 0.82, y - 10);
+      x.moveTo(128, y + 10);
+      x.lineTo(128 + w * 0.82, y - 10);
+      x.stroke();
+    }
+    for (let i = 0; i < 95; i++) {
+      x.fillStyle = `rgba(218,241,143,${0.018 + i % 5 * 9e-3})`;
+      x.beginPath();
+      x.ellipse(i * 83 % 256, i * 47 % 384, 1 + i % 3, 3 + i % 5, i % 7 * 0.12, 0, Math.PI * 2);
+      x.fill();
+    }
+    const t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    t.anisotropy = 4;
+    return t;
+  }
+  function makeCurvedBroadLeafGeometry() {
+    const across = 8, along = 14, positions = [], uvs = [], indices = [];
+    for (let j = 0; j <= along; j++) {
+      const t = j / along, width = Math.pow(Math.sin(Math.PI * Math.pow(t, 0.88)), 0.72) * 0.38 * (0.94 + 0.06 * Math.sin(t * Math.PI * 5)), centerY = t * 1.16, arch = 0.18 * Math.sin(t * Math.PI) - 0.13 * t * t;
+      for (let i = 0; i <= across; i++) {
+        const s = i / across * 2 - 1, x = s * width, edgeCurl = 0.075 * Math.pow(Math.abs(s), 1.75) * (1 - 0.25 * t), ripple = 0.012 * Math.sin(t * Math.PI * 6 + s * 2.2);
+        positions.push(x, centerY, arch + edgeCurl + ripple);
+        uvs.push(i / across, t);
+      }
+    }
+    for (let j = 0; j < along; j++) for (let i = 0; i < across; i++) {
+      const a = j * (across + 1) + i, b = a + 1, c = a + across + 1, d = c + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+    const g = new BufferGeometry();
+    g.setAttribute("position", new Float32BufferAttribute(positions, 3));
+    g.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
+    g.setIndex(indices);
+    g.computeVertexNormals();
+    return g;
+  }
+  var bushLeafGeometry = makeCurvedBroadLeafGeometry();
+  var bushLeafTexture = makeBushLeafTexture();
+  var bushLeafDark = new MeshPhysicalMaterial({ color: 1525008, map: bushLeafTexture, bumpMap: bushLeafTexture, bumpScale: 0.018, roughness: 0.58, clearcoat: 0.18, clearcoatRoughness: 0.58, sheen: 0.08, sheenColor: new Color(4618026), side: DoubleSide });
+  var bushLeafLight = new MeshPhysicalMaterial({ color: 3767072, map: bushLeafTexture, bumpMap: bushLeafTexture, bumpScale: 0.016, roughness: 0.5, clearcoat: 0.24, clearcoatRoughness: 0.5, sheen: 0.12, sheenColor: new Color(9219918), side: DoubleSide });
+  var bushStemGeometry = new CylinderGeometry(9e-3, 0.017, 1, 5);
+  var bushStemMaterial = new MeshStandardMaterial({ color: 2376726, roughness: 0.96 });
+  var bushVeinGeometry = new CylinderGeometry(7e-3, 0.014, 1.03, 5);
+  bushVeinGeometry.translate(0, 0.515, 0.035);
+  var bushVeinMaterial = new MeshStandardMaterial({ color: 5208359, roughness: 0.76 });
+  var bushBudGeometry = new SphereGeometry(0.025, 7, 5);
+  var bushBudPink = new MeshStandardMaterial({ color: 16742814, roughness: 0.75 });
+  var bushBudGold = new MeshStandardMaterial({ color: 16762959, roughness: 0.75 });
+  var bushCardTexture = new TextureLoader().load("assets/tropical-rosette-bush-v1.png");
+  bushCardTexture.colorSpace = SRGBColorSpace;
+  bushCardTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  var bushCardGeometry = new PlaneGeometry(1.35, 0.9, 1, 1);
+  bushCardGeometry.translate(0, 0.45, 0);
+  var bushCardMaterial = new MeshBasicMaterial({ map: bushCardTexture, transparent: true, alphaTest: 0.08, side: DoubleSide, depthWrite: true, toneMapped: false });
   function tree(n, s = 1) {
     const g = new Group();
     const trunk = new Mesh(new CylinderGeometry(0.13, 0.23, 1.5, 9), bark);
@@ -34418,18 +35361,43 @@ void main() {
       g.add(root);
     }
     const crown = new Group();
-    crown.position.y = 1.55;
-    for (let i = 0; i < 7; i++) {
-      const a = i / 7 * Math.PI * 2, rr = i ? 0.43 : 0.05;
-      const b = new Mesh(new IcosahedronGeometry(i ? 0.5 : 0.64, 1), i % 2 ? leaf : leaf2);
-      b.scale.set(1, 0.78, 1);
-      b.position.set(Math.cos(a) * rr, i % 3 * 0.14, Math.sin(a) * rr);
-      crown.add(b);
+    crown.name = "Jungle_Crown";
+    crown.position.y = 1.46;
+    const anchors = [];
+    for (let i = 0; i < 3; i++) {
+      const side = i - 1, curve = new CatmullRomCurve3([new Vector3(0, -0.3, side * 0.025), new Vector3(side * 0.08, -0.08, side * 0.055), new Vector3(side * 0.2, 0.1, side * 0.075), new Vector3(side * 0.34, 0.25, side * 0.1)]), limb = new Mesh(new TubeGeometry(curve, 12, 0.075 - Math.abs(side) * 7e-3, 8, false), bark);
+      limb.castShadow = limb.receiveShadow = true;
+      crown.add(limb);
     }
+    for (let i = 0; i < 21; i++) {
+      const a = i / 20 * Math.PI * 2, top = i >= 20, r = top ? 0 : 0.73 + i % 5 * 0.045, end = new Vector3(top ? 0 : Math.cos(a) * r, top ? 0.9 : 0.1 + i % 5 * 0.07, top ? 0 : Math.sin(a) * r);
+      anchors.push(end);
+      const branchLength = end.length(), branch = new Mesh(new CylinderGeometry(0.048, 0.09, branchLength, 8), bark);
+      branch.position.copy(end).multiplyScalar(0.5);
+      branch.quaternion.setFromUnitVectors(UP, end.clone().normalize());
+      branch.castShadow = branch.receiveShadow = true;
+      crown.add(branch);
+    }
+    const leafCount = 320, darkLeaves = new InstancedMesh(jungleLeafGeometry, jungleLeafDark, leafCount / 2), lightLeaves = new InstancedMesh(jungleLeafGeometry, jungleLeafLight, leafCount / 2), dummy = new Object3D(), dir = new Vector3();
+    let di = 0, li = 0;
+    for (let i = 0; i < leafCount; i++) {
+      const anchor = anchors[i % anchors.length], a = i * 0.73 + i % anchors.length * 0.49, spread = 0.15 + i % 8 * 0.02, tier = i % 15 < 5 ? 0.19 : i % 15 > 10 ? -0.17 : 0;
+      dummy.position.copy(anchor).add(new Vector3(Math.cos(a) * spread, (i % 11 - 5) * 0.029 + tier, Math.sin(a) * spread));
+      dir.set(Math.cos(a) * (0.7 + i % 3 * 0.12), 0.1 + i % 6 * 0.052, Math.sin(a) * (0.7 + i % 3 * 0.12)).normalize();
+      dummy.quaternion.setFromUnitVectors(UP, dir);
+      dummy.rotateY((i % 9 - 4) * 0.09);
+      dummy.scale.set(0.4 + i % 4 * 0.037, 0.34 + i % 6 * 0.028, 0.72 + i % 3 * 0.076);
+      dummy.updateMatrix();
+      if (i % 2) darkLeaves.setMatrixAt(di++, dummy.matrix);
+      else lightLeaves.setMatrixAt(li++, dummy.matrix);
+    }
+    darkLeaves.castShadow = darkLeaves.receiveShadow = lightLeaves.castShadow = lightLeaves.receiveShadow = true;
+    darkLeaves.instanceMatrix.needsUpdate = lightLeaves.instanceMatrix.needsUpdate = true;
+    crown.add(darkLeaves, lightLeaves);
     g.add(crown);
     g.scale.setScalar(s);
     plant(shadowify(g), n, 0.08);
-    props.push({ kind: "tree", n, radius: 0.28 * s, group: g });
+    props.push({ kind: "tree", style: "jungle", n, radius: 0.28 * s, group: g, baseQuaternion: g.quaternion.clone(), sway: new Vector2(), swayVelocity: new Vector2() });
   }
   function palm(n, s = 0.8) {
     const g = new Group();
@@ -34493,10 +35461,31 @@ void main() {
       crown.add(nut);
     }
     g.add(crown);
-    hydrateModelAsset(g, "Palm");
+    const modelSlot = new Group();
+    for (const child of [...g.children]) modelSlot.add(child);
+    g.add(modelSlot);
+    hydrateModelAsset(modelSlot, "Palm");
+    const baseRockMat = rockMat.clone(), baseLeafMat = leaf.clone();
+    for (let i = 0; i < 5; i++) {
+      const a = i / 5 * Math.PI * 2, stone = new Mesh(new DodecahedronGeometry(0.09 + i % 2 * 0.025, 0), baseRockMat);
+      stone.position.set(Math.cos(a) * (0.18 + i % 2 * 0.04), 0.045, Math.sin(a) * (0.18 + i % 2 * 0.04));
+      stone.scale.y = 0.72;
+      g.add(stone);
+    }
+    for (let i = 0; i < 7; i++) {
+      const a = i / 7 * Math.PI * 2, blade = new Mesh(new ConeGeometry(0.025, 0.2 + i % 3 * 0.035, 5), baseLeafMat);
+      blade.position.set(Math.cos(a) * 0.21, 0.1, Math.sin(a) * 0.21);
+      blade.rotation.z = (i % 2 ? 1 : -1) * 0.18;
+      g.add(blade);
+    }
+    if (Math.floor(Math.abs(n.x + n.z) * 100) % 3 === 0) {
+      const bloom = new Mesh(new SphereGeometry(0.035, 8, 6), new MeshStandardMaterial({ color: 16744357, roughness: 0.7 }));
+      bloom.position.set(0.2, 0.11, 0.08);
+      g.add(bloom);
+    }
     g.scale.setScalar(s);
     plant(shadowify(g), n, 0.07);
-    props.push({ kind: "tree", n, radius: 0.2 * s, group: g });
+    props.push({ kind: "tree", style: "palm", n, radius: 0.2 * s, group: g, baseQuaternion: g.quaternion.clone(), sway: new Vector2(), swayVelocity: new Vector2() });
   }
   var rockId = 0;
   function rock(n, s = 0.5) {
@@ -34556,24 +35545,21 @@ void main() {
     props.push({ kind: "log", n, radius: 0.48 * s, group: g });
   }
   function foliage(n, s = 0.3) {
-    const g = new Group();
-    for (let i = 0; i < 9; i++) {
-      const a = i / 9 * Math.PI * 2, m = new Mesh(new CapsuleGeometry(0.055, 0.38, 4, 7), i % 2 ? leaf : leaf2);
-      m.position.set(Math.cos(a) * 0.17, 0.12, Math.sin(a) * 0.17);
-      m.rotation.order = "YXZ";
-      m.rotation.y = -a;
-      m.rotation.z = Math.PI / 2 - 0.34;
-      m.scale.set(1, 0.9, 0.38);
-      g.add(m);
-    }
+    const g = new Group(), cards = new InstancedMesh(bushCardGeometry, bushCardMaterial, 3), dummy = new Object3D();
     for (let i = 0; i < 3; i++) {
-      const heart = new Mesh(new IcosahedronGeometry(0.16, 1), i % 2 ? leaf2 : leaf);
-      heart.position.set((i - 1) * 0.11, 0.13, -0.04);
-      heart.scale.set(1, 0.48, 0.8);
-      g.add(heart);
+      dummy.position.set(i === 0 ? 0 : i === 1 ? 0.025 : -0.025, i === 0 ? 0.015 : 0, i === 0 ? 0.012 : -0.012);
+      dummy.rotation.set(0, i === 0 ? 0 : i === 1 ? 1.03 : -1.03, 0);
+      dummy.scale.set(i === 0 ? 1 : 0.91, i === 0 ? 1 : 0.94, 1);
+      dummy.updateMatrix();
+      cards.setMatrixAt(i, dummy.matrix);
     }
-    g.scale.setScalar(s);
-    plant(shadowify(g), n, 0.02);
+    cards.instanceMatrix.needsUpdate = true;
+    cards.castShadow = false;
+    cards.receiveShadow = false;
+    g.add(cards);
+    g.scale.setScalar(s * (0.94 + Math.abs(n.x * 17 + n.z * 13) % 1 * 0.18));
+    plant(g, n, 0.018);
+    foliageDecor.push({ n: n.clone(), g });
   }
   function grassTuft(n, s = 0.5) {
     const g = new Group();
@@ -34605,28 +35591,8 @@ void main() {
     plant(shadowify(g), n, 6e-3);
   }
   var dirtPatchId = 0;
-  function dirtPatch(n, s = 0.7) {
-    const g = new Group(), id = dirtPatchId++;
-    for (let i = 0; i < 6; i++) {
-      const a = i / 6 * Math.PI * 2 + id * 0.73, r = 0.06 + i % 3 * 0.025;
-      const m = new Mesh(new CylinderGeometry(0.11 + i % 2 * 0.035, 0.13 + i % 2 * 0.03, 8e-3, 12), pathMat);
-      m.position.set(Math.cos(a) * r, 4e-3 + i * 3e-4, Math.sin(a) * r * 0.55);
-      m.scale.set(1.25 + i % 3 * 0.14, 1, 0.65 + i % 2 * 0.18);
-      m.rotation.y = a * 0.7;
-      m.receiveShadow = true;
-      g.add(m);
-    }
-    g.scale.setScalar(s);
-    plant(g, n, -2e-3);
-  }
-  for (let i = 0; i < 90; i++) {
-    const lon = i / 90 * Math.PI * 2, lat = 0.1 * Math.sin(lon * 2.2), n = normalAt(lat, lon);
-    const g = new Group(), patch = new Mesh(new CylinderGeometry(0.12, 0.14, 0.018, 12), pathMat);
-    patch.scale.set(0.85, 1, 1.9);
-    patch.position.y = 6e-3;
-    patch.receiveShadow = true;
-    g.add(patch);
-    plant(g, n, -5e-3);
+  function dirtPatch() {
+    dirtPatchId++;
   }
   for (let i = 0; i < 360; i++) {
     const y = 1 - (i + 0.5) / 360 * 2, lat = Math.asin(y), lon = i * 2.399963;
@@ -34673,6 +35639,49 @@ void main() {
   flower(midNormal(0.055, -0.13), 16744357, 0.75);
   flower(midNormal(0.095, 0.12), 16764770, 0.68);
   flower(midNormal(0.14, 0.045), 16747963, 0.6);
+  var detailStoneGeo = new DodecahedronGeometry(1, 0);
+  var detailStones = new InstancedMesh(detailStoneGeo, rockMat, 14);
+  var detailDummy = new Object3D();
+  for (let i = 0; i < 14; i++) {
+    const n = midNormal(0.015 + i % 7 * 0.018, -0.19 + i % 5 * 0.085);
+    detailDummy.position.copy(n).multiplyScalar(R + 9e-3);
+    detailDummy.quaternion.setFromUnitVectors(UP, n);
+    detailDummy.rotateY(i * 0.73);
+    const s = 0.018 + i % 4 * 7e-3;
+    detailDummy.scale.set(s * 1.25, s * 0.72, s);
+    detailDummy.updateMatrix();
+    detailStones.setMatrixAt(i, detailDummy.matrix);
+  }
+  detailStones.instanceMatrix.needsUpdate = true;
+  detailStones.castShadow = false;
+  detailStones.receiveShadow = true;
+  world.add(detailStones);
+  var cloverGeo = new SphereGeometry(1, 8, 5);
+  var cloverMat = new MeshStandardMaterial({ color: 6264367, roughness: 0.84 });
+  var clovers = new InstancedMesh(cloverGeo, cloverMat, 36);
+  var cloverBase = new Object3D();
+  var cloverLeaf = new Object3D();
+  var cloverMatrix = new Matrix4();
+  for (let i = 0; i < 12; i++) {
+    const n = midNormal(0.02 + i % 6 * 0.023, -0.2 + i % 4 * 0.13);
+    cloverBase.position.copy(n).multiplyScalar(R + 8e-3);
+    cloverBase.quaternion.setFromUnitVectors(UP, n);
+    cloverBase.rotateY(i * 0.91);
+    cloverBase.updateMatrix();
+    for (let k = 0; k < 3; k++) {
+      const a = k / 3 * Math.PI * 2;
+      cloverLeaf.position.set(Math.cos(a) * 0.025, 9e-3, Math.sin(a) * 0.025);
+      cloverLeaf.rotation.set(0, -a, 0);
+      cloverLeaf.scale.set(0.028, 8e-3, 0.038);
+      cloverLeaf.updateMatrix();
+      cloverMatrix.multiplyMatrices(cloverBase.matrix, cloverLeaf.matrix);
+      clovers.setMatrixAt(i * 3 + k, cloverMatrix);
+    }
+  }
+  clovers.instanceMatrix.needsUpdate = true;
+  clovers.castShadow = false;
+  clovers.receiveShadow = true;
+  world.add(clovers);
   function spherePart(geo, mat, pos, scale, parent) {
     const m = new Mesh(geo, mat);
     m.position.set(...pos);
@@ -34707,10 +35716,12 @@ void main() {
     return t;
   }
   var furTexture = makeFurTexture();
-  var fur = new MeshPhysicalMaterial({ color: 11098408, map: furTexture, bumpMap: furTexture, bumpScale: 0.026, roughness: 0.86, sheen: 0.28, sheenColor: new Color(15043141), emissive: 2166021, emissiveIntensity: 0.12 });
+  var fur = new MeshPhysicalMaterial({ color: 9063205, map: furTexture, bumpMap: furTexture, bumpScale: 8e-3, roughness: 0.94, sheen: 0.58, sheenColor: new Color(14129763), emissive: 1444101, emissiveIntensity: 0.055 });
   var face = new MeshPhysicalMaterial({ color: 15773298, roughness: 0.7, clearcoat: 0.09, clearcoatRoughness: 0.8, emissive: 2625542, emissiveIntensity: 0.055 });
   var dark = new MeshStandardMaterial({ color: 2102543, roughness: 0.9 });
-  var white = new MeshStandardMaterial({ color: 16774363, roughness: 0.65 });
+  var white = new MeshBasicMaterial({ color: 16776175 });
+  var eyeBrown = new MeshBasicMaterial({ color: 10970149 });
+  var eyeBlack = new MeshBasicMaterial({ color: 1444872 });
   var apeRoot = new Group();
   var apeModel = new Group();
   apeRoot.add(apeModel);
@@ -34720,22 +35731,33 @@ void main() {
   apeContact.scale.z = 0.55;
   world.add(apeContact);
   var body = spherePart(new SphereGeometry(0.24, 22, 18), fur, [0, 0.43, 0], [0.84, 1.2, 0.74], apeModel);
-  var head = spherePart(new SphereGeometry(0.295, 28, 22), fur, [0, 0.815, 0], [1.14, 1.12, 1.02], apeModel);
-  spherePart(new SphereGeometry(0.2, 22, 16), face, [0, 0.72, 0.215], [1.02, 0.76, 0.46], apeModel);
-  spherePart(new SphereGeometry(0.17, 18, 12), face, [0, 0.43, 0.148], [0.72, 0.92, 0.23], apeModel);
-  spherePart(new SphereGeometry(0.13, 18, 12), face, [0, 0.42, 0.174], [0.72, 0.82, 0.2], apeModel);
+  var head = spherePart(new SphereGeometry(0.295, 28, 22), fur, [0, 0.815, 0], [1.28, 1.18, 1.08], apeModel);
+  spherePart(new SphereGeometry(0.2, 28, 20), face, [0, 0.72, 0.33], [1.06, 0.78, 0.34], apeModel);
+  spherePart(new SphereGeometry(0.175, 24, 18), face, [0, 0.43, 0.166], [0.78, 1.02, 0.17], apeModel);
+  var neckBlend = spherePart(new SphereGeometry(0.15, 22, 16), fur, [0, 0.63, 0], [1.15, 0.72, 1.02], apeModel);
+  neckBlend.renderOrder = -1;
+  var eyeWhites = [];
+  var irises = [];
+  var pupils = [];
+  var brows = [];
   for (const side of [-1, 1]) {
     spherePart(new SphereGeometry(0.11, 16, 12), face, [side * 0.315, 0.81, 0], [0.6, 1, 0.48], apeModel);
     spherePart(new SphereGeometry(0.07, 14, 10), new MeshStandardMaterial({ color: 12087107, roughness: 0.82 }), [side * 0.326, 0.81, 0.02], [0.5, 0.76, 0.34], apeModel);
-    spherePart(new SphereGeometry(0.069, 16, 12), white, [side * 0.092, 0.89, 0.246], [1.02, 1.06, 0.48], apeModel);
-    spherePart(new SphereGeometry(0.034, 12, 9), new MeshStandardMaterial({ color: 8144158, roughness: 0.55 }), [side * 0.082, 0.882, 0.257], [1, 1, 0.45], apeModel);
-    spherePart(new SphereGeometry(0.019, 10, 8), dark, [side * 0.08, 0.892, 0.27], [1, 1, 0.5], apeModel);
-    const brow = spherePart(new BoxGeometry(0.105, 0.022, 0.028), fur, [side * 0.085, 0.925, 0.244], [1, 1, 1], apeModel);
-    brow.rotation.z = -side * 0.15;
-    spherePart(new SphereGeometry(0.014, 8, 6), dark, [side * 0.045, 0.745, 0.29], [1, 0.7, 0.5], apeModel);
+    eyeWhites.push(spherePart(new SphereGeometry(0.083, 18, 14), white, [side * 0.098, 0.89, 0.34], [1, 1.08, 0.46], apeModel));
+    irises.push(spherePart(new SphereGeometry(0.042, 16, 12), eyeBrown, [side * 0.09, 0.882, 0.36], [1, 1, 0.43], apeModel));
+    pupils.push(spherePart(new SphereGeometry(0.023, 12, 9), eyeBlack, [side * 0.088, 0.892, 0.378], [1, 1, 0.48], apeModel));
+    spherePart(new SphereGeometry(75e-4, 8, 6), white, [side * 0.088 - side * 6e-3, 0.902, 0.39], [1, 1, 0.5], apeModel);
+    const brow = spherePart(new CapsuleGeometry(0.012, 0.085, 4, 8), fur, [side * 0.085, 0.954, 0.346], [1, 1, 1], apeModel);
+    brow.rotation.z = Math.PI / 2 - side * 0.15;
+    brows.push(brow);
+    spherePart(new SphereGeometry(0.014, 8, 6), dark, [side * 0.045, 0.745, 0.385], [1, 0.7, 0.5], apeModel);
   }
-  var mouth = spherePart(new SphereGeometry(0.065, 14, 10), dark, [0, 0.675, 0.292], [0.78, 0.72, 0.2], apeModel);
-  var tongue = spherePart(new SphereGeometry(0.038, 12, 8), new MeshStandardMaterial({ color: 12017231, roughness: 0.75 }), [0, 0.653, 0.306], [1, 0.34, 0.2], apeModel);
+  var mouth = spherePart(new SphereGeometry(0.065, 14, 10), dark, [0, 0.675, 0.397], [0.78, 0.72, 0.2], apeModel);
+  var tongue = spherePart(new SphereGeometry(0.038, 12, 8), new MeshStandardMaterial({ color: 12017231, roughness: 0.75 }), [0, 0.653, 0.412], [1, 0.34, 0.2], apeModel);
+  var smileCurve = new CatmullRomCurve3([new Vector3(-0.07, 0.688, 0.407), new Vector3(-0.035, 0.669, 0.426), new Vector3(0, 0.662, 0.432), new Vector3(0.035, 0.669, 0.426), new Vector3(0.07, 0.688, 0.407)]);
+  var smile = new Mesh(new TubeGeometry(smileCurve, 20, 9e-3, 7, false), dark);
+  smile.visible = false;
+  apeModel.add(smile);
   for (let i = -1; i <= 1; i++) {
     const tuft = new Mesh(new ConeGeometry(0.045, 0.14, 7), fur);
     tuft.position.set(i * 0.04, 1.065, -0.01 + Math.abs(i) * 0.012);
@@ -34750,25 +35772,32 @@ void main() {
     cheek.castShadow = true;
     apeModel.add(cheek);
   }
-  var nose = spherePart(new SphereGeometry(0.054, 14, 10), new MeshPhysicalMaterial({ color: 8077095, roughness: 0.76 }), [0, 0.755, 0.315], [1.15, 0.72, 0.7], apeModel);
-  for (const side of [-1, 1]) spherePart(new SphereGeometry(0.012, 8, 6), dark, [side * 0.022, 0.758, 0.35], [0.72, 0.5, 0.5], apeModel);
+  var nose = spherePart(new SphereGeometry(0.054, 14, 10), new MeshPhysicalMaterial({ color: 8077095, roughness: 0.76 }), [0, 0.755, 0.41], [1.15, 0.72, 0.7], apeModel);
+  for (const side of [-1, 1]) spherePart(new SphereGeometry(0.012, 8, 6), dark, [side * 0.022, 0.758, 0.445], [0.72, 0.5, 0.5], apeModel);
   var tailCurve = new CatmullRomCurve3([new Vector3(0.03, 0.48, -0.16), new Vector3(0.28, 0.5, -0.24), new Vector3(0.39, 0.65, -0.18), new Vector3(0.36, 0.79, -0.1), new Vector3(0.27, 0.79, -0.07)]);
   var tail = new Mesh(new TubeGeometry(tailCurve, 22, 0.045, 8, false), fur);
   tail.castShadow = true;
   apeModel.add(tail);
   var limbs = {};
   function makeJointedLimb(name, x, y, isLeg) {
-    const upperLen = isLeg ? 0.2 : 0.19, lowerLen = isLeg ? 0.19 : 0.2, root = new Group(), joint = new Group(), end = new Group();
+    const upperLen = isLeg ? 0.21 : 0.2, lowerLen = isLeg ? 0.2 : 0.205, root = new Group(), joint = new Group(), end = new Group();
     root.position.set(x, y, 0);
     apeModel.add(root);
-    spherePart(new CapsuleGeometry(isLeg ? 0.069 : 0.058, upperLen, 5, 10), fur, [0, -upperLen * 0.52, 0], [1, 1, 1], root);
+    spherePart(new SphereGeometry(isLeg ? 0.066 : 0.056, 16, 12), fur, [0, 0, 0], [1.02, 0.9, 1], root);
+    spherePart(new CapsuleGeometry(isLeg ? 0.066 : 0.056, upperLen * 0.9, 6, 14), fur, [0, -upperLen * 0.5, 0], [1.03, 1, 1], root);
     joint.position.y = -upperLen;
     root.add(joint);
-    spherePart(new SphereGeometry(isLeg ? 0.07 : 0.06, 10, 8), fur, [0, 0, 0], [1, 0.8, 1], joint);
-    spherePart(new CapsuleGeometry(isLeg ? 0.062 : 0.052, lowerLen, 5, 10), fur, [0, -lowerLen * 0.52, 0], [1, 1, 1], joint);
+    const bend = spherePart(new SphereGeometry(isLeg ? 0.061 : 0.051, 16, 12), fur, [0, 0, 4e-3], [1.02, 0.84, 1], joint);
+    bend.name = isLeg ? "Knee" : "Elbow";
+    spherePart(new CapsuleGeometry(isLeg ? 0.058 : 0.048, lowerLen * 0.9, 6, 14), fur, [0, -lowerLen * 0.5, 4e-3], [1, 1, 0.98], joint);
     end.position.set(0, -lowerLen, isLeg ? 0.045 : 0.015);
     joint.add(end);
-    spherePart(new SphereGeometry(isLeg ? 0.082 : 0.074, 12, 8), face, [0, 0, isLeg ? 0.045 : 0.025], isLeg ? [1, 0.48, 1.55] : [1, 0.65, 1.15], end);
+    if (isLeg) {
+      spherePart(new SphereGeometry(0.057, 16, 12), fur, [0, 0.012, -4e-3], [1, 0.88, 1], end);
+      spherePart(new SphereGeometry(0.086, 18, 12), face, [0, -0.018, 0.074], [1.08, 0.48, 1.68], end);
+    } else {
+      spherePart(new SphereGeometry(0.071, 16, 12), face, [0, -6e-3, 0.037], [1, 0.7, 1.18], end);
+    }
     root.lower = joint;
     root.end = end;
     limbs[name] = root;
@@ -34782,13 +35811,60 @@ void main() {
     for (let i = -1; i <= 1; i++) spherePart(new SphereGeometry(0.019, 8, 6), face, [i * 0.024, -0.018, 0.07 + Math.abs(i) * 8e-3], [0.72, 0.5, 1.15], hand);
     for (let i = -1; i <= 1; i++) spherePart(new SphereGeometry(0.024, 8, 6), face, [i * 0.029, -0.014, 0.105], [0.8, 0.48, 1.35], foot);
   }
-  apeModel.scale.setScalar(0.5);
+  var dizzySpirals = new Group();
+  var spiralMat = new MeshBasicMaterial({ color: 2823691, depthWrite: false });
+  for (const side of [-1, 1]) {
+    const points = [];
+    for (let i = 0; i < 34; i++) {
+      const a = i * 0.58, r = 4e-3 + i * 165e-5;
+      points.push(new Vector3(side * 0.098 + Math.cos(a) * r, 0.89 + Math.sin(a) * r, 0.405));
+    }
+    const spiral = new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 46, 0.011, 7, false), spiralMat);
+    dizzySpirals.add(spiral);
+  }
+  dizzySpirals.visible = false;
+  apeModel.add(dizzySpirals);
+  apeModel.scale.setScalar(0.7);
   apeModel.traverse((m) => {
     if (m.isMesh) {
       m.castShadow = true;
       m.receiveShadow = true;
     }
   });
+  var heroRig = { root: apeModel, body, head, limbs, tail, eyes: eyeWhites, irises, pupils, brows, mouth, tongue, dizzySpirals };
+  apeModel.userData.rig = heroRig;
+  document.documentElement.dataset.heroRig = "sheet-hero-v3";
+  function setApeExpression(state, t = 0) {
+    document.documentElement.dataset.heroExpression = state;
+    const surprised = state === "surprised", dizzy = state === "dizzy", angry = state === "angry", happy = state === "happy";
+    for (let i = 0; i < 2; i++) {
+      const side = i ? 1 : -1, eye = eyeWhites[i], iris = irises[i], pupil = pupils[i], brow = brows[i];
+      eye.scale.set(1.02, surprised ? 1.24 : angry ? 0.78 : 1.06, 0.48);
+      iris.visible = !dizzy;
+      pupil.visible = !dizzy;
+      const aimX = angry ? side * 3e-3 : 0;
+      iris.position.set(side * 0.098 + aimX, 0.89, 0.36);
+      pupil.position.set(side * 0.098 + aimX, 0.89, 0.378);
+      brow.rotation.z = Math.PI / 2 + side * (angry ? 0.38 : surprised ? -0.04 : -0.15);
+      brow.position.y = surprised ? 0.982 : angry ? 0.938 : 0.954;
+    }
+    smile.visible = happy;
+    mouth.visible = !happy;
+    mouth.scale.set(surprised ? 0.62 : angry ? 1.05 : 0.78, surprised ? 1.32 : angry ? 0.28 : 0.72, 0.2);
+    mouth.position.y = surprised ? 0.66 : angry ? 0.686 : 0.675;
+    mouth.rotation.z = dizzy ? -0.28 : 0;
+    tongue.visible = dizzy || surprised;
+    tongue.position.set(dizzy ? 0.035 : 0, dizzy ? 0.638 : 0.653, 0.412);
+    tongue.rotation.z = dizzy ? 0.62 : 0;
+    dizzySpirals.visible = dizzy;
+    if (dizzy) {
+      for (let i = 0; i < 2; i++) {
+        irises[i].visible = false;
+        pupils[i].visible = false;
+      }
+      mouth.scale.set(1.16, 0.82, 0.24);
+    }
+  }
   var stunBirds = new Group();
   var birdMat = new MeshStandardMaterial({ color: 16766011, emissive: 9065984, emissiveIntensity: 0.5, roughness: 0.6 });
   for (let i = 0; i < 5; i++) {
@@ -34805,6 +35881,21 @@ void main() {
   }
   stunBirds.visible = false;
   apeModel.add(stunBirds);
+  var dizzyStars = new Group();
+  var dizzyMat = new MeshStandardMaterial({ color: 16766255, emissive: 10180096, emissiveIntensity: 0.8, roughness: 0.45 });
+  for (let i = 0; i < 5; i++) {
+    const shape = new Shape();
+    for (let j = 0; j < 10; j++) {
+      const a = Math.PI / 2 + j * Math.PI / 5, r = j % 2 ? 0.025 : 0.065;
+      j ? shape.lineTo(Math.cos(a) * r, Math.sin(a) * r) : shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    shape.closePath();
+    const star = new Mesh(new ExtrudeGeometry(shape, { depth: 0.018, bevelEnabled: true, bevelSegments: 1, bevelSize: 6e-3, bevelThickness: 5e-3 }), dizzyMat);
+    star.userData.phase = i / 5 * Math.PI * 2;
+    dizzyStars.add(star);
+  }
+  dizzyStars.visible = false;
+  apeModel.add(dizzyStars);
   var apeN = CAMERA_CENTER_NORMAL.clone();
   var targetN = apeN.clone();
   var runSpeed = 0;
@@ -34816,6 +35907,9 @@ void main() {
   var tripPhase = "run";
   var facing = 1;
   var lastTarget = new Vector3();
+  var reversalFall = false;
+  var angryTimer = 0;
+  var angryStompPlayed = false;
   var tripObstacle = null;
   var obstacleGrace = 0;
   var avoidObstacle = null;
@@ -34827,6 +35921,7 @@ void main() {
   var hitTimer = 0;
   var startleTimer = 0;
   var stunTimer = 0;
+  var logDizzyTimer = 0;
   var beeWaveTimer = 0;
   var pendingDamageTrip = false;
   var knockedOut = false;
@@ -34839,15 +35934,114 @@ void main() {
     if (tangent.lengthSq() > 1e-4) {
       const local = tangent.normalize().applyQuaternion(apeRoot.quaternion.clone().invert());
       apeModel.rotation.y = Math.atan2(local.x, local.z);
+    } else {
+      const cameraLocal = camera.position.clone().applyQuaternion(world.quaternion.clone().invert()), view = cameraLocal.addScaledVector(apeN, -cameraLocal.dot(apeN));
+      if (view.lengthSq() > 1e-4) {
+        view.normalize().applyQuaternion(apeRoot.quaternion.clone().invert());
+        apeModel.rotation.y = Math.atan2(view.x, view.z);
+      }
     }
   }
   placeApe();
+  var authoredHero = null;
+  var authoredBones = {};
+  var authoredBoneBase = {};
+  var heroChoice = new URLSearchParams(location.search).get("hero");
+  var enableBlenderHero = heroChoice === "blender" || heroChoice === "sculpt";
+  var authoredHeroAsset = heroChoice === "sculpt" ? "assets/hero/banana-planet-hero-sculpt-candidate.glb?v=2" : "assets/hero/banana-planet-hero.glb?v=14";
+  var proceduralHeroVisuals = apeModel.children.filter((c) => ![stunBirds, dizzyStars, dizzySpirals].includes(c));
+  new GLTFLoader().load(authoredHeroAsset, (gltf) => {
+    authoredHero = gltf.scene;
+    authoredHero.name = "BananaPlanetHero";
+    authoredHero.scale.setScalar(heroChoice === "sculpt" ? 0.27 : 0.44);
+    authoredHero.rotation.y = 0;
+    authoredHero.visible = enableBlenderHero;
+    authoredHero.traverse((o) => {
+      if (o.isMesh) {
+        o.castShadow = true;
+        o.receiveShadow = true;
+        if (o.material) {
+          o.material = o.material.clone();
+          if (heroChoice === "sculpt") {
+            if (o.material.name.includes("Hero Unified Skin")) {
+              o.material.color.set(16777215);
+              o.material.vertexColors = true;
+              o.material.roughness = 0.9;
+            }
+            if (o.material.emissive) o.material.emissive.set(0);
+            o.material.emissiveIntensity = 0;
+          } else {
+            if ((o.name === "HeroBody" || o.material.name.includes("WarmBrownFurBreakup")) && o.geometry?.attributes?.position) {
+              o.material.color.setRGB(o.material.map ? 0.72 : 0.4, o.material.map ? 0.48 : 0.17, o.material.map ? 0.32 : 0.055);
+              o.material.roughness = 0.94;
+              if (!o.material.map) {
+                const p = o.geometry.attributes.position, a = [];
+                for (let i = 0; i < p.count; i++) {
+                  const q = p.getZ(i) * 17 + p.getX(i) * 11 + p.getY(i) * 7, r = p.getZ(i) * 37 - p.getX(i) * 23 + p.getY(i) * 19, n = 0.84 + 0.1 * (0.5 + 0.5 * Math.sin(q)) + 0.045 * (0.5 + 0.5 * Math.sin(r));
+                  a.push(n, n * 0.965, n * 0.91);
+                }
+                o.geometry.setAttribute("color", new Float32BufferAttribute(a, 3));
+                o.material.vertexColors = true;
+              }
+            }
+            if (o.material.emissive && o.material.color) o.material.emissive.copy(o.material.color).multiplyScalar(o.material.map ? 0.04 : 0.22);
+            o.material.emissiveIntensity = o.material.map ? 0.08 : 0.75;
+          }
+          o.material.needsUpdate = true;
+        }
+      }
+      if (o.isBone) {
+        authoredBones[o.name] = o;
+        authoredBoneBase[o.name] = o.quaternion.clone();
+      }
+    });
+    apeModel.add(authoredHero);
+    if (enableBlenderHero) for (const o of proceduralHeroVisuals) o.visible = false;
+    document.documentElement.dataset.heroAsset = enableBlenderHero ? "blender-development" : "procedural-stable";
+    document.documentElement.dataset.heroRig = "blender-armature-v1";
+    document.documentElement.dataset.heroLoad = "ready";
+    document.documentElement.dataset.heroCandidate = heroChoice === "sculpt" ? "sculpt-v1" : "legacy-v14";
+  }, (err) => {
+    console.warn("Blender hero fallback active", err);
+    document.documentElement.dataset.heroLoad = "fallback";
+  });
+  var authoredDeltaEuler = new Euler();
+  var authoredDeltaQuat = new Quaternion();
+  function setAuthoredBoneDelta(name, x = 0, y = 0, z = 0) {
+    const b = authoredBones[name], base = authoredBoneBase[name];
+    if (!b || !base) return;
+    authoredDeltaEuler.set(x, y, z, "XYZ");
+    authoredDeltaQuat.setFromEuler(authoredDeltaEuler);
+    b.quaternion.copy(base).multiply(authoredDeltaQuat);
+  }
+  function syncAuthoredHero() {
+    if (!authoredHero) return;
+    const cp = (name, source, lower = false) => {
+      const r = lower ? source.lower.rotation : source.rotation;
+      setAuthoredBoneDelta(name, r.x, r.y, r.z);
+    };
+    cp("upper_arm.L", limbs.armL);
+    cp("upper_arm.R", limbs.armR);
+    cp("forearm.L", limbs.armL, true);
+    cp("forearm.R", limbs.armR, true);
+    cp("thigh.L", limbs.legL);
+    cp("thigh.R", limbs.legR);
+    cp("shin.L", limbs.legL, true);
+    cp("shin.R", limbs.legR, true);
+    const state = document.documentElement.dataset.heroExpression || "focused", now = performance.now();
+    setAuthoredBoneDelta("jaw", state === "surprised" ? 0.34 : state === "dizzy" ? 0.28 : state === "angry" ? 0.06 : 0.02, 0, 0);
+    setAuthoredBoneDelta("head", state === "surprised" ? -0.05 : 0, 0, state === "dizzy" ? Math.sin(now * 0.012) * 0.14 : state === "angry" ? -0.06 : 0);
+    for (const side of ["L", "R"]) {
+      setAuthoredBoneDelta("eye." + side, state === "dizzy" ? side === "L" ? 0.12 : -0.12 : 0, 0, state === "dizzy" ? side === "L" ? -0.1 : 0.1 : 0);
+      setAuthoredBoneDelta("brow." + side, 0, state === "angry" ? side === "L" ? -0.24 : 0.24 : state === "surprised" ? side === "L" ? 0.1 : -0.1 : 0, 0);
+    }
+  }
   var bananaMat = new MeshStandardMaterial({ color: 16764455, emissive: 9063680, emissiveIntensity: 0.7, roughness: 0.45 });
   var bombMat = new MeshStandardMaterial({ color: 2238763, roughness: 0.55, metalness: 0.28 });
   var hiveMat = new MeshStandardMaterial({ color: 14853420, emissive: 4859392, emissiveIntensity: 0.16, roughness: 0.78 });
   var hiveRidgeMat = new MeshStandardMaterial({ color: 16172362, emissive: 5844992, emissiveIntensity: 0.12, roughness: 0.72 });
   var HIVE_SWARM_RADIUS = 0.15;
-  var BEE_ATTACK_DISTANCE = HIVE_SWARM_RADIUS * 5;
+  var BEE_ATTACK_DISTANCE = HIVE_SWARM_RADIUS * 10;
   var drops = [];
   var bees = [];
   var planes = [];
@@ -34911,13 +36105,18 @@ void main() {
     return g;
   }
   function makeFallingLog() {
-    const g = new Group();
-    hydrateModelAsset(g, "Log");
-    if (!modelTemplates.has("Log")) {
-      const m = new Mesh(new CylinderGeometry(0.2, 0.25, 1.2, 14), brown);
-      m.rotation.z = Math.PI / 2;
-      m.castShadow = true;
-      g.add(m);
+    const g = new Group(), body2 = new Mesh(new CylinderGeometry(0.2, 0.24, 1.15, 16), brown);
+    body2.rotation.z = Math.PI / 2;
+    body2.castShadow = true;
+    body2.receiveShadow = true;
+    g.add(body2);
+    const cut = new MeshStandardMaterial({ color: 13207365, roughness: 0.92 });
+    for (const x of [-0.585, 0.585]) {
+      const end = new Mesh(new CylinderGeometry(0.205, 0.205, 0.025, 16), cut);
+      end.rotation.z = Math.PI / 2;
+      end.position.x = x;
+      end.castShadow = true;
+      g.add(end);
     }
     return g;
   }
@@ -34970,7 +36169,26 @@ void main() {
     g.add(dropTip);
     return g;
   }
-  var DROP_WEIGHTS = [["banana", 0.55], ["rock", 0.15], ["log", 0.12], ["bomb", 0.1], ["hive", 0.08]];
+  var treeHives = [];
+  function installTreeHives() {
+    const hosts = props.filter((p) => p.kind === "tree" && p.style === "jungle");
+    for (let i = 4; i < hosts.length; i += 13) {
+      const tree2 = hosts[i], hive = makeHive();
+      hive.scale.setScalar(0.34);
+      hive.position.set(i % 2 ? 0.38 : -0.38, 1.05, 0.08);
+      hive.rotation.z = i % 2 ? 0.16 : -0.16;
+      tree2.group.add(hive);
+      treeHives.push({ tree: tree2, g: hive, baseRotation: hive.rotation.clone(), aggression: 0, cooldown: 4, warned: false });
+    }
+  }
+  installTreeHives();
+  var DROP_WEIGHTS = [["banana", 0.34], ["coconutDrink", 0.08], ["star", 0.045], ["gem", 0.065], ["heart", 0.05], ["rock", 0.15], ["log", 0.12], ["bomb", 0.09], ["hive", 0.06]];
+  var SMALL_PLANE_MODEL_SCALE = 0.42;
+  var CARGO_PLANE_MODEL_SCALE = 0.62;
+  var SMALL_PLANE_ROUTE_HEIGHT = 4.2;
+  var CARGO_PLANE_ROUTE_HEIGHT = 6.5;
+  var CARGO_PLANE_SKY_LIFT = 9;
+  Object.assign(document.documentElement.dataset, { smallPlaneScale: SMALL_PLANE_MODEL_SCALE.toFixed(2), cargoPlaneScale: CARGO_PLANE_MODEL_SCALE.toFixed(2), smallPlaneRouteHeight: SMALL_PLANE_ROUTE_HEIGHT.toFixed(2), cargoPlaneRouteHeight: CARGO_PLANE_ROUTE_HEIGHT.toFixed(2), cargoHeightRatio: (CARGO_PLANE_ROUTE_HEIGHT / SMALL_PLANE_ROUTE_HEIGHT).toFixed(2) });
   function pickDropType() {
     let r = Math.random();
     for (const [type, weight] of DROP_WEIGHTS) {
@@ -34980,44 +36198,347 @@ void main() {
     return DROP_WEIGHTS[0][0];
   }
   function makeCargoPlane() {
-    const g = new Group(), bodyMat = new MeshStandardMaterial({ color: 15909957, roughness: 0.48, metalness: 0.08 }), wingMat = new MeshStandardMaterial({ color: 2583976, roughness: 0.5 });
-    const body2 = new Mesh(new CapsuleGeometry(0.14, 0.72, 6, 12), bodyMat);
+    const g = new Group(), paint = new MeshPhysicalMaterial({ color: 15313187, roughness: 0.34, metalness: 0.14, clearcoat: 0.62, clearcoatRoughness: 0.28 }), paintDark = new MeshPhysicalMaterial({ color: 10961959, roughness: 0.42, clearcoat: 0.45 }), wingMat = new MeshPhysicalMaterial({ color: 2321826, roughness: 0.32, metalness: 0.08, clearcoat: 0.58 }), cream = new MeshStandardMaterial({ color: 16113578, roughness: 0.55 }), metal = new MeshStandardMaterial({ color: 3423040, roughness: 0.3, metalness: 0.72 }), rubber = new MeshStandardMaterial({ color: 1513755, roughness: 0.82 }), fur2 = new MeshStandardMaterial({ color: 7026462, roughness: 0.9 }), muzzleMat = new MeshStandardMaterial({ color: 13933155, roughness: 0.78 }), glass = new MeshPhysicalMaterial({ color: 9033973, transparent: true, opacity: 0.62, roughness: 0.12, metalness: 0.05 });
+    const body2 = new Mesh(new CapsuleGeometry(0.18, 0.82, 10, 24), paint);
     body2.rotation.z = Math.PI / 2;
+    body2.scale.y = 0.88;
     body2.castShadow = true;
     g.add(body2);
-    const nose2 = new Mesh(new ConeGeometry(0.14, 0.28, 12), bodyMat);
-    nose2.rotation.z = -Math.PI / 2;
+    const nose2 = new Mesh(new SphereGeometry(0.19, 24, 16), paintDark);
+    nose2.scale.set(1.15, 0.9, 0.9);
     nose2.position.x = 0.58;
+    nose2.castShadow = true;
     g.add(nose2);
-    const wing = new Mesh(new BoxGeometry(0.32, 0.055, 1.15), wingMat);
-    wing.position.x = 0.02;
-    wing.castShadow = true;
-    g.add(wing);
-    const tail2 = new Mesh(new BoxGeometry(0.24, 0.045, 0.5), wingMat);
-    tail2.position.x = -0.43;
+    const spinner = new Mesh(new ConeGeometry(0.075, 0.18, 18), metal);
+    spinner.rotation.z = -Math.PI / 2;
+    spinner.position.x = 0.82;
+    g.add(spinner);
+    for (const [y, width, depth] of [[0.12, 0.11, 1.38], [-0.16, 0.12, 1.23]]) {
+      const wing = new Mesh(new BoxGeometry(0.52, width, depth, 3, 1, 5), wingMat);
+      wing.position.set(0.02, y, 0);
+      wing.castShadow = true;
+      wing.receiveShadow = true;
+      g.add(wing);
+      for (const z of [-depth * 0.5, depth * 0.5]) {
+        const tip = new Mesh(new SphereGeometry(width * 0.62, 14, 9), wingMat);
+        tip.scale.set(2.2, 0.7, 1);
+        tip.position.set(0.02, y, z);
+        g.add(tip);
+      }
+    }
+    for (const x of [-0.13, 0.22]) for (const z of [-0.43, 0.43]) {
+      const strut = new Mesh(new CylinderGeometry(0.018, 0.018, 0.31, 8), cream);
+      strut.position.set(x, -0.015, z);
+      strut.rotation.z = (x < 0 ? -1 : 1) * 0.1;
+      g.add(strut);
+    }
+    const tail2 = new Mesh(new BoxGeometry(0.34, 0.055, 0.62, 2, 1, 3), wingMat);
+    tail2.position.set(-0.5, 0.03, 0);
     g.add(tail2);
-    const fin = new Mesh(new BoxGeometry(0.2, 0.28, 0.045), wingMat);
-    fin.position.set(-0.42, 0.15, 0);
+    const fin = new Mesh(new BoxGeometry(0.3, 0.34, 0.055, 3, 3, 1), paintDark);
+    fin.position.set(-0.52, 0.19, 0);
+    fin.rotation.z = -0.15;
     g.add(fin);
-    const prop = new Mesh(new BoxGeometry(0.025, 0.62, 0.04), new MeshStandardMaterial({ color: 3883333, metalness: 0.5 }));
-    prop.position.x = 0.74;
+    const cockpitWell = new Mesh(new CylinderGeometry(0.135, 0.15, 0.11, 24), rubber);
+    cockpitWell.position.set(-0.1, 0.18, 0);
+    g.add(cockpitWell);
+    const cockpitRim = new Mesh(new TorusGeometry(0.15, 0.026, 9, 28), cream);
+    cockpitRim.rotation.x = Math.PI / 2;
+    cockpitRim.position.set(-0.1, 0.245, 0);
+    g.add(cockpitRim);
+    const screen = new Mesh(new SphereGeometry(0.12, 18, 10, 0, Math.PI, 0, Math.PI * 0.48), glass);
+    screen.scale.set(0.28, 0.72, 1);
+    screen.position.set(0.09, 0.3, 0);
+    screen.rotation.z = -0.15;
+    g.add(screen);
+    const pilot = new Group();
+    pilot.position.set(-0.1, 0.32, 0);
+    g.add(pilot);
+    const torso = new Mesh(new SphereGeometry(0.105, 18, 13), fur2);
+    torso.scale.set(0.85, 1.15, 0.8);
+    pilot.add(torso);
+    const head2 = new Mesh(new SphereGeometry(0.115, 22, 16), fur2);
+    head2.position.y = 0.18;
+    head2.castShadow = true;
+    pilot.add(head2);
+    const muzzle = new Mesh(new SphereGeometry(0.072, 18, 12), muzzleMat);
+    muzzle.scale.set(0.85, 0.68, 0.85);
+    muzzle.position.set(0.075, 0.16, 0);
+    pilot.add(muzzle);
+    for (const z of [-0.105, 0.105]) {
+      const ear = new Mesh(new SphereGeometry(0.048, 14, 10), muzzleMat);
+      ear.position.set(-5e-3, 0.2, z);
+      ear.scale.x = 0.52;
+      pilot.add(ear);
+    }
+    for (const z of [-0.04, 0.04]) {
+      const eye = new Mesh(new SphereGeometry(0.016, 10, 8), rubber);
+      eye.position.set(0.098, 0.215, z);
+      pilot.add(eye);
+    }
+    const goggles = new Mesh(new TorusGeometry(0.03, 8e-3, 6, 14), metal);
+    goggles.rotation.y = Math.PI / 2;
+    goggles.position.set(0.098, 0.218, -0.04);
+    pilot.add(goggles);
+    const goggles2 = goggles.clone();
+    goggles2.position.z = 0.04;
+    pilot.add(goggles2);
+    const scarf = new Mesh(new BoxGeometry(0.3, 0.035, 0.055), paintDark);
+    scarf.position.set(-0.18, 0.1, 0);
+    scarf.rotation.z = 0.15;
+    pilot.add(scarf);
+    const arms = [];
+    for (const z of [-0.105, 0.105]) {
+      const arm = new Group(), upper = new Mesh(new CapsuleGeometry(0.025, 0.12, 4, 8), fur2);
+      upper.position.y = -0.075;
+      arm.add(upper);
+      arm.position.set(0.02, 0.08, z);
+      arm.rotation.z = z < 0 ? -0.55 : 0.55;
+      pilot.add(arm);
+      arms.push(arm);
+    }
+    pilot.userData.arms = arms;
+    pilot.userData.head = head2;
+    g.userData.pilot = pilot;
+    const axle = new Mesh(new CylinderGeometry(0.025, 0.025, 0.54, 10), metal);
+    axle.rotation.x = Math.PI / 2;
+    axle.position.set(0.12, -0.31, 0);
+    g.add(axle);
+    for (const z of [-0.29, 0.29]) {
+      const wheel = new Mesh(new TorusGeometry(0.085, 0.025, 10, 20), rubber);
+      wheel.position.set(0.12, -0.31, z);
+      wheel.rotation.y = Math.PI / 2;
+      g.add(wheel);
+    }
+    const prop = new Group();
+    prop.position.x = 0.92;
+    const bladeMat = new MeshPhysicalMaterial({ color: 14267754, roughness: 0.4, clearcoat: 0.35 });
+    for (const a of [0, Math.PI / 2]) {
+      const blade = new Mesh(new CapsuleGeometry(0.025, 0.52, 5, 10), bladeMat);
+      blade.rotation.x = a;
+      prop.add(blade);
+    }
     g.add(prop);
     g.userData.prop = prop;
-    g.scale.setScalar(0.72);
+    g.userData.dropGesture = 0;
+    g.scale.setScalar(SMALL_PLANE_MODEL_SCALE);
+    g.traverse((o) => {
+      if (o.isMesh) {
+        o.castShadow = true;
+        o.receiveShadow = true;
+      }
+    });
     return g;
   }
-  function releaseDrop(type, n) {
-    const g = type === "banana" ? makeBanana() : type === "bomb" ? makeBomb() : type === "rock" ? makeFallingRock() : type === "log" ? makeFallingLog() : makeHive();
-    const drop = { type, n: n.clone(), g, h: 1.45, vy: 0.3, landed: false, groundTime: 0, triggered: false };
+  function makeHeavyCargoPlane(types) {
+    const g = new Group(), bodyMat = new MeshPhysicalMaterial({ color: 6924487, emissive: 1060155, emissiveIntensity: 0.16, roughness: 0.38, metalness: 0.15, clearcoat: 0.52 }), accent = new MeshPhysicalMaterial({ color: 16760111, emissive: 6238464, emissiveIntensity: 0.18, roughness: 0.34, metalness: 0.1, clearcoat: 0.56 }), darkMetal = new MeshStandardMaterial({ color: 2502713, roughness: 0.54, metalness: 0.5 }), bayMat = new MeshStandardMaterial({ color: 1054492, roughness: 0.82 }), glass = new MeshPhysicalMaterial({ color: 10414079, transparent: true, opacity: 0.76, roughness: 0.12 });
+    const fuselage = new Mesh(new CapsuleGeometry(0.3, 1.5, 12, 28), bodyMat);
+    fuselage.rotation.z = Math.PI / 2;
+    fuselage.scale.y = 0.92;
+    g.add(fuselage);
+    const nose2 = new Mesh(new SphereGeometry(0.31, 24, 16), bodyMat);
+    nose2.scale.set(1.18, 0.88, 0.9);
+    nose2.position.x = 0.95;
+    g.add(nose2);
+    const windshield = new Mesh(new SphereGeometry(0.23, 20, 12, 0, Math.PI, 0, Math.PI * 0.45), glass);
+    windshield.scale.set(0.32, 0.7, 1.05);
+    windshield.position.set(0.94, 0.15, 0);
+    windshield.rotation.z = -0.28;
+    g.add(windshield);
+    const wing = new Mesh(new BoxGeometry(0.78, 0.09, 2.25, 4, 1, 7), bodyMat);
+    wing.position.set(0.05, 0.02, 0);
+    g.add(wing);
+    const tail2 = new Mesh(new BoxGeometry(0.55, 0.065, 0.95, 3, 1, 4), accent);
+    tail2.position.set(-0.86, 0.08, 0);
+    g.add(tail2);
+    const fin = new Mesh(new BoxGeometry(0.5, 0.55, 0.07, 4, 4, 1), accent);
+    fin.position.set(-0.88, 0.33, 0);
+    fin.rotation.z = -0.17;
+    g.add(fin);
+    const props2 = [];
+    for (const z of [-0.66, 0.66]) {
+      const nacelle = new Mesh(new CapsuleGeometry(0.13, 0.46, 8, 18), darkMetal);
+      nacelle.rotation.z = Math.PI / 2;
+      nacelle.position.set(0.22, -0.06, z);
+      g.add(nacelle);
+      const prop = new Group();
+      prop.position.set(0.55, -0.06, z);
+      for (const a of [0, Math.PI / 2]) {
+        const blade = new Mesh(new CapsuleGeometry(0.018, 0.43, 4, 8), accent);
+        blade.rotation.x = a;
+        prop.add(blade);
+      }
+      g.add(prop);
+      props2.push(prop);
+    }
+    const opening = new Mesh(new BoxGeometry(0.18, 0.45, 0.48), bayMat);
+    opening.position.set(-0.91, -0.03, 0);
+    g.add(opening);
+    const rampPivot = new Group();
+    rampPivot.position.set(-1.01, -0.2, 0);
+    const ramp = new Mesh(new BoxGeometry(0.62, 0.055, 0.48), darkMetal);
+    ramp.position.x = -0.29;
+    rampPivot.add(ramp);
+    g.add(rampPivot);
+    const previews = [];
+    for (let i = 0; i < 3; i++) {
+      const preview = makeDropModel(types[i]);
+      preview.scale.setScalar(0.42);
+      preview.position.set(-0.58 + i * 0.22, -0.06, (i - 1) * 0.11);
+      g.add(preview);
+      previews.push(preview);
+    }
+    g.scale.setScalar(CARGO_PLANE_MODEL_SCALE);
+    g.userData = { heavyCargo: true, props: props2, rampPivot, cargoPreviews: previews };
+    g.traverse((o) => {
+      if (o.isMesh) {
+        o.castShadow = true;
+        o.receiveShadow = true;
+      }
+    });
+    return g;
+  }
+  function releaseDrop(type, n, startHeight = 3.15, startOffset = null) {
+    const g = makeDropModel(type);
+    const isFastRock = type === "rock", drop = { type, n: n.clone(), g, h: startHeight, initialHeight: startHeight, startOffset: startOffset?.clone() || null, vy: isFastRock ? 1.52 : 0.62, gravity: isFastRock ? 1.38 : 0.52, landed: false, groundTime: 0, triggered: false };
     world.add(g);
     drops.push(drop);
+    startFallWhistle(drop);
+    document.documentElement.dataset.lastDropType = type;
+    document.documentElement.dataset.lastDropSpeed = drop.vy.toFixed(2);
+    document.documentElement.dataset.lastDropAim = apeN.angleTo(n).toFixed(3);
+    const dangerous = ["bomb", "hive", "rock", "log"].includes(type);
+    if (dangerous) {
+      const trailMat = new LineBasicMaterial({ color: type === "bomb" || type === "hive" ? 16738125 : 13101567, transparent: true, opacity: 0.62, depthWrite: false }), trail = new Line(new BufferGeometry().setFromPoints([new Vector3(), new Vector3()]), trailMat);
+      world.add(trail);
+      drop.fallTrail = trail;
+    }
     playCue("fall");
     if (type === "hive") spawnBees(drop);
   }
-  function spawnDrop() {
-    const type = pickDropType();
-    const spread = type === "hive" ? 0.085 : 0.65;
-    const n = targetN.clone().applyAxisAngle(new Vector3(0, 1, 0), (Math.random() - 0.5) * spread).normalize();
+  function finishAirDrop(drop) {
+    stopFallWhistle(drop);
+    if (drop.fallTrail) {
+      world.remove(drop.fallTrail);
+      drop.fallTrail.geometry.dispose();
+      drop.fallTrail.material.dispose();
+      drop.fallTrail = null;
+    }
+  }
+  function dropCoconut(tree2) {
+    const looseNut = tree2.group.getObjectByProperty("name", "Coconut_0")?.parent?.children.find((o) => o.name.startsWith("Coconut_") && o.visible);
+    if (looseNut) looseNut.visible = false;
+    const g = new Group(), shell = new Mesh(new SphereGeometry(0.16, 14, 10), new MeshStandardMaterial({ color: 7684127, roughness: 0.94 }));
+    shell.scale.set(0.82, 1.08, 0.82);
+    shell.castShadow = true;
+    g.add(shell);
+    for (let i = 0; i < 3; i++) {
+      const eye = new Mesh(new SphereGeometry(0.018, 7, 5), dark), a = i / 3 * Math.PI * 2;
+      eye.position.set(Math.cos(a) * 0.055, 0.12, Math.sin(a) * 0.055);
+      g.add(eye);
+    }
+    const n = offsetDropPoint(tree2.n, 0.018), drop = { type: "coconut", n, g, h: 0.78, vy: 0.2, gravity: 0.46, landed: false, groundTime: 0, triggered: false };
+    world.add(g);
+    drops.push(drop);
+    startFallWhistle(drop);
+    document.documentElement.dataset.treeDrop = "coconut";
+    toast.textContent = "COCONUT SHAKEN LOOSE!";
+    setTimeout(() => {
+      if (!knockedOut && toast.textContent === "COCONUT SHAKEN LOOSE!") toast.textContent = "";
+    }, 900);
+    playCue("coconut");
+  }
+  function makeGem() {
+    const g = new Group(), mat = new MeshPhysicalMaterial({ color: 3524863, emissive: 483227, emissiveIntensity: 0.75, metalness: 0.08, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.12 }), gem = new Mesh(new OctahedronGeometry(0.18, 0), mat);
+    gem.scale.set(0.78, 1.25, 0.78);
+    gem.castShadow = true;
+    g.add(gem);
+    g.add(new PointLight(3788799, 1.2, 1.5));
+    return g;
+  }
+  function makeHeart() {
+    const g = new Group(), mat = new MeshPhysicalMaterial({ color: 16728146, emissive: 8193814, emissiveIntensity: 0.45, roughness: 0.35, clearcoat: 0.75 });
+    for (const x of [-0.07, 0.07]) {
+      const lobe = new Mesh(new SphereGeometry(0.105, 14, 10), mat);
+      lobe.position.set(x, 0.065, 0);
+      lobe.castShadow = true;
+      g.add(lobe);
+    }
+    const tip = new Mesh(new ConeGeometry(0.145, 0.24, 16), mat);
+    tip.position.y = -0.09;
+    tip.rotation.z = Math.PI;
+    g.add(tip);
+    g.add(new PointLight(16732774, 1, 1.3));
+    return g;
+  }
+  function makeCoconutDrink() {
+    const g = new Group(), shellMat = new MeshStandardMaterial({ color: 8078367, roughness: 0.92 }), milkMat = new MeshPhysicalMaterial({ color: 16114871, roughness: 0.38, clearcoat: 0.45 }), cup = new Mesh(new SphereGeometry(0.17, 16, 12, 0, Math.PI * 2, 0.42, Math.PI * 0.58), shellMat);
+    cup.scale.y = 0.9;
+    cup.castShadow = true;
+    g.add(cup);
+    const rim2 = new Mesh(new TorusGeometry(0.13, 0.018, 7, 18), milkMat);
+    rim2.rotation.x = Math.PI / 2;
+    rim2.position.y = 0.09;
+    g.add(rim2);
+    const straw = new Mesh(new CylinderGeometry(0.012, 0.012, 0.32, 7), new MeshStandardMaterial({ color: 3917021, roughness: 0.48 }));
+    straw.position.set(0.055, 0.23, 0);
+    straw.rotation.z = -0.2;
+    g.add(straw);
+    const umbrella = new Mesh(new ConeGeometry(0.12, 0.075, 12), new MeshStandardMaterial({ color: 16741969, roughness: 0.62 }));
+    umbrella.position.set(-0.05, 0.25, 0);
+    umbrella.rotation.z = 0.18;
+    g.add(umbrella);
+    return g;
+  }
+  function makeStar() {
+    const shape = new Shape();
+    for (let i = 0; i < 10; i++) {
+      const a = Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 0.075 : 0.18, x = Math.cos(a) * r, y = Math.sin(a) * r;
+      i ? shape.lineTo(x, y) : shape.moveTo(x, y);
+    }
+    shape.closePath();
+    const g = new Group(), mat = new MeshPhysicalMaterial({ color: 16762150, emissive: 10967296, emissiveIntensity: 0.85, metalness: 0.28, roughness: 0.22, clearcoat: 1 }), star = new Mesh(new ExtrudeGeometry(shape, { depth: 0.07, bevelEnabled: true, bevelSegments: 2, bevelSize: 0.025, bevelThickness: 0.022 }), mat);
+    star.position.z = -0.035;
+    star.castShadow = true;
+    g.add(star);
+    g.add(new PointLight(16766033, 1.8, 2));
+    return g;
+  }
+  function makeDropModel(type) {
+    return type === "banana" ? makeBanana() : type === "coconutDrink" ? makeCoconutDrink() : type === "star" ? makeStar() : type === "gem" ? makeGem() : type === "heart" ? makeHeart() : type === "bomb" ? makeBomb() : type === "rock" ? makeFallingRock() : type === "log" ? makeFallingLog() : makeHive();
+  }
+  function dropTreeReward(tree2, type) {
+    const g = type === "heart" ? makeHeart() : type === "coconutDrink" ? makeCoconutDrink() : type === "star" ? makeStar() : makeGem(), n = offsetDropPoint(tree2.n, 0.018), drop = { type, n, g, h: 0.78, vy: 0.14, landed: false, groundTime: 0, triggered: false };
+    world.add(g);
+    drops.push(drop);
+    document.documentElement.dataset.treeDrop = type;
+    playCue("fall");
+  }
+  function dropTreeHive(entry) {
+    const worldPos = new Vector3();
+    entry.g.getWorldPosition(worldPos);
+    entry.tree.group.remove(entry.g);
+    entry.g.position.set(0, 0, 0);
+    entry.g.rotation.set(0, 0, 0);
+    entry.g.scale.setScalar(1);
+    const drop = { type: "hive", n: entry.tree.n.clone(), g: entry.g, h: 0.8, vy: 0.2, landed: false, groundTime: 0, triggered: false };
+    world.add(entry.g);
+    drops.push(drop);
+    spawnBees(drop);
+    entry.dropped = true;
+    document.documentElement.dataset.treeDrop = "hive";
+    playCue("fall");
+  }
+  function offsetDropPoint(base, maxAngle) {
+    const axis = new Vector3().crossVectors(base, Math.abs(base.y) > 0.9 ? new Vector3(1, 0, 0) : UP).normalize().applyAxisAngle(base, Math.random() * Math.PI * 2);
+    return base.clone().applyAxisAngle(axis, Math.sqrt(Math.random()) * maxAngle).normalize();
+  }
+  function spawnDrop(forcedType) {
+    const type = forcedType || pickDropType();
+    const leadAmount = type === "rock" ? Math.min(0.62, 0.28 + runSpeed * 1.8) : Math.min(0.38, 0.12 + runSpeed * 1.35);
+    const predictedApe = apeN.clone().lerp(targetN, leadAmount).normalize();
+    const goodCargo = ["banana", "coconutDrink", "star", "gem", "heart"].includes(type);
+    const n = goodCargo ? offsetDropPoint(targetN, 0.68) : offsetDropPoint(predictedApe, type === "rock" ? 0.011 : 0.026);
     const tangentA = new Vector3().crossVectors(n, Math.abs(n.y) > 0.9 ? new Vector3(1, 0, 0) : UP).normalize();
     const tangentB = new Vector3().crossVectors(n, tangentA).normalize(), flightAngle = Math.random() * Math.PI * 2;
     const tangent = tangentA.multiplyScalar(Math.cos(flightAngle)).addScaledVector(tangentB, Math.sin(flightAngle)).normalize();
@@ -35026,6 +36547,17 @@ void main() {
     const g = makeCargoPlane();
     world.add(g);
     planes.push({ g, type, n, tangent, orientation, progress: 0, released: false });
+  }
+  function spawnCargoBurst() {
+    const good = ["banana", "coconutDrink", "gem", "star"], hazards = ["rock", "log", "bomb"], types = [good[Math.floor(Math.random() * good.length)], Math.random() < 0.58 ? good[Math.floor(Math.random() * good.length)] : hazards[Math.floor(Math.random() * hazards.length)], good[Math.floor(Math.random() * good.length)]];
+    const n = offsetDropPoint(targetN, 0.045), tangent = new Vector3(1, 0, 0).addScaledVector(n, -n.x).normalize().multiplyScalar(Math.random() < 0.5 ? -1 : 1), skyLift = UP.clone().addScaledVector(n, -UP.dot(n)).normalize(), planeUp = n.clone(), planeSide = new Vector3().crossVectors(tangent, planeUp).normalize(), orientation = new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(tangent, planeUp, planeSide)), points = [offsetDropPoint(n, 0.055), offsetDropPoint(n, 0.04), offsetDropPoint(n, 0.055)], g = makeHeavyCargoPlane(types);
+    world.add(g);
+    planes.push({ kind: "heavyCargo", g, types, points, n, tangent, skyLift, orientation, progress: 0, releasedCount: 0 });
+    document.documentElement.dataset.cargoPlane = "spawned";
+    toast.textContent = "CARGO BURST INCOMING!";
+    setTimeout(() => {
+      if (!knockedOut && toast.textContent === "CARGO BURST INCOMING!") toast.textContent = "";
+    }, 1e3);
   }
   function qaLandHive() {
     const n = apeN.clone().applyAxisAngle(new Vector3(0, 1, 0), 0.035).normalize(), g = makeHive(), drop = { type: "hive", n, g, h: 0.015, vy: 0, landed: true, groundTime: 0, triggered: false };
@@ -35041,6 +36573,16 @@ void main() {
   }
   function qaCatchBanana() {
     const g = makeBanana(), drop = { type: "banana", n: apeN.clone(), g, h: 0.22, vy: 0.6, landed: false, groundTime: 0, triggered: false };
+    world.add(g);
+    drops.push(drop);
+  }
+  function qaLandLog() {
+    const g = makeFallingLog(), drop = { type: "log", n: offsetDropPoint(apeN, 0.055), g, h: 0.015, vy: 0, landed: true, groundTime: 0, triggered: false };
+    world.add(g);
+    drops.push(drop);
+  }
+  function qaCatchReward(type) {
+    const g = type === "heart" ? makeHeart() : type === "coconutDrink" ? makeCoconutDrink() : type === "star" ? makeStar() : makeGem(), drop = { type, n: apeN.clone(), g, h: 0.2, vy: 0.25, landed: false, groundTime: 0, triggered: false };
     world.add(g);
     drops.push(drop);
   }
@@ -35085,14 +36627,131 @@ void main() {
   }
   var velocity = new Vector2();
   var dragPrev = new Vector2();
+  var globeImpulse = new Vector2();
+  var lastGestureVector = new Vector2();
   var dragging = false;
   var lastMove = 0;
+  var lastGestureAt = 0;
+  var reversalCooldown = 0;
+  var coconutCooldown = 1.1;
+  var hiveDropCooldown = 8;
+  var mildShakeCharge = 0;
+  var aggressiveShakeTime = 0;
+  var lastHiveBuzz = 0;
+  var treeShakeDrops = 0;
+  function triggerAggressiveReversal(prior) {
+    if (reversalCooldown > 0 || trip > 0 || hitTimer > 0 || knockedOut || Math.random() > 0.55) return;
+    reversalCooldown = 7.5;
+    reversalFall = true;
+    facing = prior.x >= 0 ? 1 : -1;
+    document.documentElement.dataset.shakeEvent = "reversal-fall";
+    tripApe();
+    toast.textContent = "WHOA!";
+  }
   function rotateWorld(dx, dy, userGesture = false) {
     if (Math.abs(dx) + Math.abs(dy) < 1e-6) return;
     const qx = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), dx);
     const qy = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), dy);
     world.quaternion.premultiply(qx).premultiply(qy).normalize();
-    if (userGesture) recognize = 0.1;
+    globeImpulse.x = MathUtils.clamp(globeImpulse.x + dx, -0.08, 0.08);
+    globeImpulse.y = MathUtils.clamp(globeImpulse.y + dy, -0.08, 0.08);
+    if (userGesture) {
+      recognize = 0.1;
+      const now = performance.now(), mag = Math.hypot(dx, dy), lastMag = lastGestureVector.length();
+      playRustle(Math.min(1, mag / 0.026));
+      if (now - lastGestureAt < 280 && mag > 6e-3 && lastMag > 6e-3 && (dx * lastGestureVector.x + dy * lastGestureVector.y) / (mag * lastMag) < -0.76) triggerAggressiveReversal(lastGestureVector);
+      lastGestureVector.set(dx, dy);
+      lastGestureAt = now;
+    }
+  }
+  function updateShakeDynamics(dt, t) {
+    reversalCooldown = Math.max(0, reversalCooldown - dt);
+    coconutCooldown = Math.max(0, coconutCooldown - dt);
+    hiveDropCooldown = Math.max(0, hiveDropCooldown - dt);
+    const intensity = globeImpulse.length();
+    document.documentElement.dataset.shakeIntensity = intensity.toFixed(4);
+    globeImpulse.multiplyScalar(Math.exp(-dt * 7.5));
+    for (const p of props) {
+      if (p.kind !== "tree" || !p.sway) continue;
+      const palmBoost = p.style === "palm" ? 1.9 : 1.18, maxLean = p.style === "palm" ? 0.27 : 0.18, targetX = MathUtils.clamp(-globeImpulse.y * 3.2 * palmBoost, -maxLean, maxLean), targetZ = MathUtils.clamp(globeImpulse.x * 3.2 * palmBoost, -maxLean, maxLean);
+      p.swayVelocity.x += ((targetX - p.sway.x) * 27 - p.swayVelocity.x * 7.2) * dt;
+      p.swayVelocity.y += ((targetZ - p.sway.y) * 27 - p.swayVelocity.y * 7.2) * dt;
+      p.sway.addScaledVector(p.swayVelocity, dt);
+      const local = new Quaternion().setFromEuler(new Euler(p.sway.x, 0, p.sway.y));
+      p.group.quaternion.copy(p.baseQuaternion).multiply(local);
+      if (p.style === "palm") {
+        const crown = p.group.getObjectByName("Palm_Crown");
+        if (crown) {
+          enhancePalmCrown(crown);
+          if (!crown.userData.swayBase) crown.userData.swayBase = crown.rotation.clone();
+          const base = crown.userData.swayBase;
+          crown.rotation.set(base.x + p.sway.x * 0.42, base.y, base.z + p.sway.y * 0.62);
+          for (const part of crown.children) {
+            if (part.name.startsWith("Frond_")) {
+              if (part.userData.baseZ === void 0) part.userData.baseZ = part.rotation.z;
+              part.rotation.z = part.userData.baseZ + p.sway.y * 0.34 + Math.sin(t * 6 + Number(part.name.slice(6))) * intensity * 0.42;
+            } else if (part.name === "ReferenceFronds") {
+              part.rotation.x = p.sway.x * 0.2 + Math.sin(t * 5.3) * intensity * 0.1;
+              part.rotation.z = p.sway.y * 0.3 + Math.sin(t * 6.1) * intensity * 0.12;
+            } else if (part.name.startsWith("Coconut_") && !part.userData.styled) {
+              const id = Number(part.name.slice(8)) || 0, a = id / 5 * Math.PI * 2;
+              part.userData.styled = true;
+              part.position.set(Math.cos(a) * (0.12 + id % 2 * 0.025), -0.115 - id % 3 * 0.034, Math.sin(a) * (0.12 + id % 2 * 0.025));
+              part.scale.set(0.76 + id % 3 * 0.09, 1.02 + id % 2 * 0.13, 0.78 + id % 3 * 0.07);
+              part.material = new MeshPhysicalMaterial({ color: [7634221, 9340723, 6450471, 10193720, 7369767][id % 5], map: coconutHuskTexture, bumpMap: coconutHuskTexture, bumpScale: 0.028, roughness: 0.82, clearcoat: 0.08, clearcoatRoughness: 0.8 });
+              const stem = new Mesh(new CylinderGeometry(0.012, 0.018, 0.13, 7), new MeshStandardMaterial({ color: 6705437, roughness: 0.9 }));
+              stem.position.set(0, 0.12, 0);
+              stem.rotation.z = id % 2 ? 0.16 : -0.16;
+              part.add(stem);
+              const cap = new Mesh(new CylinderGeometry(0.027, 0.04, 0.025, 9), new MeshStandardMaterial({ color: 5522203, roughness: 0.92 }));
+              cap.position.y = 0.078;
+              part.add(cap);
+              const shine = new Mesh(new SphereGeometry(0.018, 7, 5), new MeshBasicMaterial({ color: 14276205, transparent: true, opacity: 0.55 }));
+              shine.position.set(-0.038, 0.025, 0.072);
+              part.add(shine);
+            }
+          }
+        }
+      }
+    }
+    mildShakeCharge = intensity > 45e-4 ? mildShakeCharge + dt : Math.max(0, mildShakeCharge - dt * 0.65);
+    if (mildShakeCharge > 0.24) {
+      mildShakeCharge = 0;
+      if (coconutCooldown <= 0 && Math.random() < 0.72) {
+        const trees = props.filter((p) => p.kind === "tree"), palms = trees.filter((p) => p.style === "palm"), visiblePalms = palms.filter((p) => p.n.clone().applyQuaternion(world.quaternion).angleTo(CAMERA_CENTER_NORMAL) < 0.75), hostPool = visiblePalms.length ? visiblePalms : palms, host = hostPool[Math.floor(Math.random() * hostPool.length)] || trees[Math.floor(Math.random() * trees.length)], roll = Math.random(), forceFirstCoconut = treeShakeDrops === 0;
+        treeShakeDrops++;
+        if (host && (forceFirstCoconut || roll < 0.64)) dropCoconut(host);
+        else if (health < 3 && roll < 0.72) dropTreeReward(host, "heart");
+        else if (roll < 0.84) dropTreeReward(host, "gem");
+        else if (roll < 0.94) dropTreeReward(host, "coconutDrink");
+        else dropTreeReward(host, "star");
+        coconutCooldown = 4 + Math.random() * 2.5;
+      }
+    }
+    aggressiveShakeTime = intensity > 0.022 ? aggressiveShakeTime + dt : Math.max(0, aggressiveShakeTime - dt * 0.7);
+    const warning = aggressiveShakeTime > 0.22;
+    for (const h of treeHives) {
+      if (h.dropped) continue;
+      h.cooldown = Math.max(0, h.cooldown - dt);
+      const wobble = warning ? Math.sin(t * 17) * Math.min(0.2, aggressiveShakeTime * 0.22) : 0;
+      h.g.rotation.set(h.baseRotation.x, h.baseRotation.y, h.baseRotation.z + wobble);
+    }
+    if (treeHives.some((h) => !h.dropped) && t - lastHiveBuzz > 3.4) {
+      lastHiveBuzz = t;
+      playCue("hiveWarning");
+    }
+    if (warning && t - lastHiveBuzz > 0.55) {
+      lastHiveBuzz = t;
+      playCue("hiveWarning");
+    }
+    if (aggressiveShakeTime > 0.72 && hiveDropCooldown <= 0) {
+      aggressiveShakeTime = 0;
+      const eligible = treeHives.filter((h) => !h.dropped && h.cooldown <= 0);
+      if (eligible.length && Math.random() < 0.32) {
+        dropTreeHive(eligible[Math.floor(Math.random() * eligible.length)]);
+        hiveDropCooldown = 16;
+      }
+    }
   }
   var activePointers = /* @__PURE__ */ new Map();
   var pinchDistance = 0;
@@ -35203,6 +36862,16 @@ void main() {
     damageApe();
     toast.textContent = "BONK!";
   }
+  function logHeadHitApe() {
+    playCue("bonk");
+    logDizzyTimer = 2.15;
+    dizzyStars.visible = true;
+    tripApe();
+    toast.textContent = "KLONK!";
+    setTimeout(() => {
+      if (!knockedOut) toast.textContent = "";
+    }, 700);
+  }
   function propHitAngle(p) {
     return (p.radius + 0.105) / R;
   }
@@ -35235,6 +36904,12 @@ void main() {
     targetN.copy(CAMERA_CENTER_NORMAL).applyQuaternion(inv).normalize();
     const gap = apeN.angleTo(targetN), distanceMode = gap >= 0.19 ? "RUN OFFSCREEN" : gap >= 0.08 ? "RUN FAR" : "WALK NEAR";
     debugEl.textContent = `${distanceMode} \xB7 ${tripPhase.toUpperCase()} \xB7 GAP ${(gap * 57.3).toFixed(1)}\xB0`;
+    let heroExpression = "focused";
+    if (knockedOut || stunTimer > 0 || logDizzyTimer > 0 || trip > 0 && trip < 1.53 && trip > 0.43) heroExpression = "dizzy";
+    else if (angryTimer > 0 || beeWaveTimer > 0) heroExpression = "angry";
+    else if (hitTimer > 0 || startleTimer > 0 || trip > 1.53) heroExpression = "surprised";
+    else if (gap < 0.05) heroExpression = "happy";
+    setApeExpression(heroExpression, t);
     if (stunTimer > 0) {
       stunTimer -= dt;
       stunBirds.visible = true;
@@ -35244,6 +36919,16 @@ void main() {
         bird.rotation.y = -a;
       }
       if (stunTimer <= 0) stunBirds.visible = false;
+    }
+    if (logDizzyTimer > 0) {
+      logDizzyTimer -= dt;
+      dizzyStars.visible = true;
+      for (const star of dizzyStars.children) {
+        const a = t * 5.8 + star.userData.phase;
+        star.position.set(Math.cos(a) * 0.42, 1.25 + Math.sin(a * 2) * 0.045, Math.sin(a) * 0.28);
+        star.rotation.set(0, -a, t * 4 + star.userData.phase);
+      }
+      if (logDizzyTimer <= 0) dizzyStars.visible = false;
     }
     if (knockedOut) {
       apeModel.rotation.z = 1.52;
@@ -35263,9 +36948,13 @@ void main() {
       apeModel.rotation.z = Math.sin(t * 45) * 0.22;
       apeModel.rotation.x = -0.18;
       apeModel.position.y = 0.035;
-      head.rotation.z = Math.sin(t * 38) * 0.18;
-      limbs.armL.rotation.x = -1.65;
-      limbs.armR.rotation.x = -1.65;
+      head.rotation.z = stunTimer > 0 ? -0.34 + Math.sin(t * 8) * 0.09 : Math.sin(t * 38) * 0.18;
+      limbs.armL.rotation.x = stunTimer > 0 ? -0.35 : -1.65;
+      limbs.armR.rotation.x = stunTimer > 0 ? 0.48 : -1.65;
+      limbs.armL.lower.rotation.x = stunTimer > 0 ? 0.72 : 0;
+      limbs.armR.lower.rotation.x = stunTimer > 0 ? 0.58 : 0;
+      limbs.legL.rotation.x = stunTimer > 0 ? 0.22 : 0;
+      limbs.legR.rotation.x = stunTimer > 0 ? -0.18 : 0;
       if (hitTimer <= 0 && pendingDamageTrip) {
         pendingDamageTrip = false;
         apeModel.rotation.z = 0;
@@ -35393,6 +37082,33 @@ void main() {
     if (lastTarget.lengthSq() && lastTarget.angleTo(targetN) > 0.42 && runSpeed > 0.12) tripApe();
     lastTarget.copy(targetN);
     if (hitTimer > 0 || startleTimer > 0 || beeWaveTimer > 0) {
+    } else if (angryTimer > 0) {
+      angryTimer -= dt;
+      runSpeed = 0;
+      tripPhase = "angry";
+      const p = 1 - angryTimer / 1.15;
+      apeModel.rotation.x = -0.1;
+      apeModel.rotation.z = Math.sin(t * 18) * 0.025;
+      head.rotation.x = -0.13;
+      limbs.armL.rotation.x = -1.65;
+      limbs.armR.rotation.x = -1.65;
+      limbs.armL.lower.rotation.x = -1.05;
+      limbs.armR.lower.rotation.x = -1.05;
+      limbs.legL.rotation.x = 0;
+      limbs.legR.rotation.x = p < 0.48 ? -0.45 * Math.sin(p / 0.48 * Math.PI) : 0;
+      if (!angryStompPlayed && p > 0.52) {
+        angryStompPlayed = true;
+        playCue("stomp");
+        toast.textContent = "HEY!";
+        setTimeout(() => {
+          if (!knockedOut) toast.textContent = "";
+        }, 500);
+      }
+      if (angryTimer <= 0) {
+        tripPhase = "run";
+        apeModel.rotation.set(0, apeModel.rotation.y, 0);
+        head.rotation.set(0, head.rotation.y, 0);
+      }
     } else if (trip > 0) {
       trip -= dt;
       const elapsed = 2.15 - trip;
@@ -35400,7 +37116,7 @@ void main() {
         const p = elapsed / 0.28;
         tripPhase = "stumble";
         apeModel.rotation.x = p * 0.32;
-        apeModel.rotation.z = facing * Math.sin(p * Math.PI) * 0.035;
+        apeModel.rotation.z = facing * Math.sin(p * Math.PI) * (reversalFall ? 0.16 : 0.035);
         limbs.armL.rotation.x = -p * 1.15;
         limbs.armR.rotation.x = -p * 0.9;
         limbs.armL.lower.rotation.x = -p * 0.55;
@@ -35413,7 +37129,7 @@ void main() {
         const p = (elapsed - 0.28) / 0.34;
         tripPhase = "fall";
         apeModel.rotation.x = 0.32 + p * 1.02;
-        apeModel.rotation.z = facing * 0.025 * (1 - p);
+        apeModel.rotation.z = facing * (reversalFall ? 0.12 : 0.025) * (1 - p);
         apeModel.position.y = 0.012 * (1 - p);
         limbs.armL.rotation.x = -1.55;
         limbs.armR.rotation.x = -1.42;
@@ -35473,6 +37189,12 @@ void main() {
         apeModel.rotation.set(0, apeModel.rotation.y, 0);
         apeModel.position.y = 0;
         tripPhase = "run";
+        if (reversalFall) {
+          reversalFall = false;
+          angryTimer = 1.15;
+          angryStompPlayed = false;
+          playCue("yell");
+        }
         if (tripObstacle) {
           obstacleGrace = 3;
           avoidObstacle = tripObstacle;
@@ -35513,14 +37235,69 @@ void main() {
       apeModel.position.y = support * MathUtils.lerp(4e-3, 9e-3, sprint) * moving;
     }
     placeApe();
+    syncAuthoredHero();
   }
   var effects = [];
   function explodeBomb(d) {
     playCue("boom");
-    const flash = new Mesh(new SphereGeometry(0.18, 16, 12), new MeshBasicMaterial({ color: 16738848, transparent: true, opacity: 0.85, depthWrite: false }));
-    flash.position.copy(d.n).multiplyScalar(R + 0.18);
-    world.add(flash);
-    effects.push({ g: flash, life: 0.5 });
+    const blast = new Group();
+    blast.position.copy(d.n).multiplyScalar(R + 0.025);
+    blast.quaternion.setFromUnitVectors(UP, d.n);
+    const coreMat = new MeshBasicMaterial({ color: 16773792, transparent: true, opacity: 1, depthWrite: false, blending: AdditiveBlending });
+    const fireMat = new MeshBasicMaterial({ color: 16738332, transparent: true, opacity: 0.92, depthWrite: false, blending: AdditiveBlending });
+    const smokeMat = new MeshStandardMaterial({ color: 2698545, roughness: 1, transparent: true, opacity: 0.82, depthWrite: false });
+    const core = new Mesh(new SphereGeometry(0.12, 18, 14), coreMat);
+    core.position.y = 0.12;
+    blast.add(core);
+    const fire = new Mesh(new SphereGeometry(0.2, 18, 14), fireMat);
+    fire.position.y = 0.13;
+    fire.scale.set(1.15, 0.8, 1.15);
+    blast.add(fire);
+    const ring = new Mesh(new RingGeometry(0.12, 0.18, 32), new MeshBasicMaterial({ color: 16760130, side: DoubleSide, transparent: true, opacity: 0.9, depthWrite: false, blending: AdditiveBlending }));
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.018;
+    blast.add(ring);
+    const smoke = [], sparks = [];
+    for (let i = 0; i < 7; i++) {
+      const puff = new Mesh(new DodecahedronGeometry(0.075 + Math.random() * 0.035, 1), smokeMat.clone());
+      const a = i / 7 * Math.PI * 2;
+      puff.position.set(Math.cos(a) * 0.055, 0.12 + i % 3 * 0.045, Math.sin(a) * 0.055);
+      puff.userData.drift = new Vector3(Math.cos(a) * (0.08 + Math.random() * 0.08), 0.18 + Math.random() * 0.12, Math.sin(a) * (0.08 + Math.random() * 0.08));
+      blast.add(puff);
+      smoke.push(puff);
+    }
+    for (let i = 0; i < 14; i++) {
+      const spark = new Mesh(new SphereGeometry(0.012, 6, 4), new MeshBasicMaterial({ color: i % 3 ? 16753183 : 16777140, transparent: true, depthWrite: false, blending: AdditiveBlending }));
+      const a = Math.random() * Math.PI * 2, s = 0.25 + Math.random() * 0.32;
+      spark.position.set(0, 0.13, 0);
+      spark.userData.velocity = new Vector3(Math.cos(a) * s, 0.2 + Math.random() * 0.35, Math.sin(a) * s);
+      blast.add(spark);
+      sparks.push(spark);
+    }
+    const light = new PointLight(16742952, 4.5, 2.3, 2);
+    light.position.y = 0.22;
+    blast.add(light);
+    world.add(blast);
+    effects.push({ g: blast, life: 0.9, maxLife: 0.9, update(dt, e) {
+      const age = e.maxLife - e.life, p = Math.min(1, age / e.maxLife);
+      core.scale.setScalar(1 + p * 3.1);
+      coreMat.opacity = Math.max(0, 1 - p * 2.5);
+      fire.scale.set(1.15 + p * 2.4, 0.8 + p * 1.5, 1.15 + p * 2.4);
+      fireMat.opacity = Math.max(0, 0.92 - p * 1.45);
+      ring.scale.setScalar(1 + p * 5.2);
+      ring.material.opacity = Math.max(0, 0.9 - p * 1.25);
+      light.intensity = Math.max(0, 4.5 - p * 8);
+      for (const puff of smoke) {
+        puff.position.addScaledVector(puff.userData.drift, dt);
+        puff.scale.multiplyScalar(1 + dt * 1.8);
+        puff.material.opacity = Math.max(0, 0.78 - p * 0.8);
+      }
+      for (const spark of sparks) {
+        spark.userData.velocity.y -= dt * 0.55;
+        spark.position.addScaledVector(spark.userData.velocity, dt);
+        spark.material.opacity = Math.max(0, 1 - p * 1.18);
+      }
+    } });
     const blastGap = apeN.angleTo(d.n);
     if (blastGap < 0.045) damageApe();
     else if (blastGap < 0.09 && !knockedOut) {
@@ -35536,7 +37313,8 @@ void main() {
       if (!knockedOut) toast.textContent = "";
     }, 450);
   }
-  var dropTimer = 4;
+  var dropTimer = 1.35;
+  var firstCargoScheduled = false;
   var last = performance.now();
   function frame(now) {
     const dt = Math.min(0.033, (now - last) / 1e3);
@@ -35553,23 +37331,76 @@ void main() {
         velocity.multiplyScalar(Math.pow(0.12, dt));
         if (velocity.length() < 18e-6) velocity.set(0, 0);
       }
+      updateShakeDynamics(dt, t);
+      updateLandedProps(dt);
       updateApe(dt, t);
+      if (++foliageCullFrame % 6 === 0) {
+        for (const d of foliageDecor) d.g.visible = d.n.clone().applyQuaternion(world.quaternion).dot(CAMERA_CENTER_NORMAL) > -0.12;
+      }
       dropTimer -= dt;
       if (dropTimer <= 0) {
-        spawnDrop();
+        if (planes.length < 3) {
+          if (!firstCargoScheduled) {
+            firstCargoScheduled = true;
+            spawnCargoBurst();
+          } else if (Math.random() < 0.22) spawnCargoBurst();
+          else spawnDrop();
+        }
         dropTimer = 2.8 + Math.random() * 2;
       }
       for (let i = planes.length - 1; i >= 0; i--) {
-        const p = planes[i];
-        p.progress += dt * 0.42;
-        p.g.position.copy(p.n).multiplyScalar(R + 2.05).addScaledVector(p.tangent, (p.progress - 0.5) * 5.2);
+        const p = planes[i], heavy = p.kind === "heavyCargo";
+        p.progress += dt * (heavy ? 0.255 : 0.36);
+        p.g.position.copy(p.n).multiplyScalar(R + (heavy ? CARGO_PLANE_ROUTE_HEIGHT : SMALL_PLANE_ROUTE_HEIGHT)).addScaledVector(p.tangent, (p.progress - 0.5) * (heavy ? 5.8 : 5.2));
+        if (heavy) p.g.position.addScaledVector(p.skyLift, CARGO_PLANE_SKY_LIFT);
         p.g.quaternion.copy(p.orientation);
-        p.g.userData.prop.rotation.x += dt * 24;
-        if (!p.released && p.progress >= 0.48) {
-          p.released = true;
-          releaseDrop(p.type, p.n);
+        const actualAltitude = p.g.position.length() - R;
+        if (heavy) document.documentElement.dataset.cargoActualAltitude = actualAltitude.toFixed(2);
+        else document.documentElement.dataset.smallActualAltitude = actualAltitude.toFixed(2);
+        if (heavy) {
+          for (const prop of p.g.userData.props) prop.rotation.x += dt * 27;
+          const open = MathUtils.smoothstep(p.progress, 0.25, 0.43) * (1 - MathUtils.smoothstep(p.progress, 0.74, 0.91));
+          p.g.userData.rampPivot.rotation.z = -open * 0.7;
+          for (let j = 0; j < 3; j++) {
+            const preview = p.g.userData.cargoPreviews[j];
+            if (preview.visible) preview.position.x -= dt * open * (0.1 + j * 0.035);
+            const threshold = 0.45 + j * 0.045;
+            if (p.releasedCount === j && p.progress >= threshold) {
+              preview.visible = false;
+              p.releasedCount++;
+              const dropHeight = 6.25 - j * 0.12, origin = p.g.position.clone().addScaledVector(p.tangent, -0.82 - j * 0.08), offset = origin.clone().addScaledVector(p.points[j], -(R + dropHeight));
+              releaseDrop(p.types[j], p.points[j], dropHeight, offset);
+              document.documentElement.dataset.cargoBurst = String(p.releasedCount);
+              document.documentElement.dataset.cargoAltitude = (p.g.position.length() - R).toFixed(2);
+              playCue("fall");
+            }
+          }
+        } else {
+          p.g.userData.prop.rotation.x += dt * 24;
+          const pilot = p.g.userData.pilot;
+          if (pilot) {
+            const bob = Math.sin(t * 8 + p.progress * 5);
+            pilot.position.y = 0.32 + bob * 8e-3;
+            pilot.userData.head.rotation.z = bob * 0.045;
+            const gesture = p.g.userData.dropGesture || 0;
+            if (gesture > 0) {
+              p.g.userData.dropGesture = Math.max(0, gesture - dt);
+              const wave = Math.sin((0.58 - gesture) * Math.PI * 5);
+              pilot.userData.arms[0].rotation.z = -1.35 + wave * 0.28;
+              pilot.userData.arms[0].rotation.x = -0.4;
+              pilot.userData.arms[1].rotation.z = 0.85;
+            } else {
+              pilot.userData.arms[0].rotation.set(0, 0, -0.55 + bob * 0.08);
+              pilot.userData.arms[1].rotation.set(0, 0, 0.55 - bob * 0.08);
+            }
+          }
+          if (!p.released && p.progress >= 0.48) {
+            p.released = true;
+            p.g.userData.dropGesture = 0.58;
+            releaseDrop(p.type, p.n);
+          }
         }
-        if (p.progress > 1.12) {
+        if (p.progress > (heavy ? 1.18 : 1.12)) {
           world.remove(p.g);
           planes.splice(i, 1);
         }
@@ -35578,39 +37409,78 @@ void main() {
         const d = drops[i];
         if (!d.landed) {
           d.h -= d.vy * dt;
-          d.vy += 0.28 * dt;
+          d.vy += (d.gravity ?? 0.52) * dt;
           if (d.h <= 0.015) {
             d.h = 0.015;
             d.landed = true;
             d.groundTime = 0;
+            finishAirDrop(d);
             if (d.type !== "banana") playCue("land");
           }
         } else d.groundTime += dt;
         if (d.landed && d.type === "hive" && !d.zoneRing) makeHiveZone(d);
         d.g.position.copy(d.n).multiplyScalar(R + d.h);
+        if (d.startOffset && !d.landed) d.g.position.addScaledVector(d.startOffset, MathUtils.clamp(d.h / d.initialHeight, 0, 1));
         d.g.quaternion.setFromUnitVectors(UP, d.n);
-        if (!d.landed) d.g.rotateY(dt * 2.4);
-        const closeness = Math.max(0, 1 - d.h / 1.45);
+        if (!d.landed) {
+          d.g.rotateY(dt * 2.4);
+          updateFallWhistle(d);
+        }
+        if (d.fallTrail) {
+          const attr = d.fallTrail.geometry.attributes.position, p = d.g.position;
+          attr.setXYZ(0, p.x, p.y, p.z);
+          attr.setXYZ(1, p.x + d.n.x * (0.42 + d.vy * 0.28), p.y + d.n.y * (0.42 + d.vy * 0.28), p.z + d.n.z * (0.42 + d.vy * 0.28));
+          attr.needsUpdate = true;
+          d.fallTrail.material.opacity = Math.min(0.82, 0.36 + d.vy * 0.28);
+        }
+        const flashStart = d.type === "hive" ? 9.2 : 1.35, willDisappear = ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "bomb", "hive"].includes(d.type);
+        d.g.visible = !d.landed || !willDisappear || d.groundTime < flashStart || Math.floor((d.groundTime - flashStart) * 12) % 2 === 0;
+        const closeness = Math.max(0, 1 - d.h / 2.15);
         d.g.scale.setScalar((0.2 + closeness * 0.22) * (d.type === "hive" ? 1.55 : 1));
         const apeCatchPoint = apeN.clone().multiplyScalar(R + 0.2);
-        if (d.type === "banana" && d.g.position.distanceTo(apeCatchPoint) < 0.22) {
+        const apeHeadPoint = apeN.clone().multiplyScalar(R + 0.43);
+        const goodDrop = ["banana", "coconut", "coconutDrink", "gem", "star", "heart"].includes(d.type);
+        if (goodDrop && d.g.position.distanceTo(apeCatchPoint) < 0.22 && !(d.type === "heart" && health >= 3)) {
+          finishAirDrop(d);
           playCue("catch");
-          score++;
-          scoreEl.textContent = `\u{1F34C} ${score}`;
+          if (d.type === "heart") {
+            health = Math.min(3, health + 1);
+            updateHealth();
+            toast.textContent = "+1 HEART";
+          } else {
+            const reward = d.type === "star" ? 10 : d.type === "gem" ? 5 : d.type === "coconutDrink" ? 3 : d.type === "coconut" ? 2 : 1;
+            score += reward;
+            scoreEl.textContent = `\u{1F34C} ${score}`;
+            toast.textContent = d.type === "star" ? "+10 GOLD STAR!" : d.type === "gem" ? "+5 GEM!" : d.type === "coconutDrink" ? "+3 COCONUT DRINK!" : d.type === "coconut" ? "+2 COCONUT!" : "";
+          }
+          if (d.type !== "banana") setTimeout(() => {
+            if (!knockedOut) toast.textContent = "";
+          }, 650);
           world.remove(d.g);
           drops.splice(i, 1);
           continue;
         }
-        if (!d.landed && d.type !== "banana" && d.g.position.distanceTo(apeCatchPoint) < 0.19) {
+        if (!d.landed && d.type === "log" && d.g.position.distanceTo(apeHeadPoint) < 0.2) {
+          logHeadHitApe();
+          finishAirDrop(d);
+          world.remove(d.g);
+          drops.splice(i, 1);
+          continue;
+        }
+        if (!d.landed && !goodDrop && d.g.position.distanceTo(apeCatchPoint) < 0.19) {
           if (d.type === "bomb") damageApe();
           else if (d.type === "rock") rockHitApe();
           else if (d.type === "log") tripApe();
+          finishAirDrop(d);
           world.remove(d.g);
           drops.splice(i, 1);
           continue;
         }
         if (d.landed && d.type === "log") {
-          addLandedProp({ kind: "log", n: d.n.clone(), radius: 0.28, group: d.g });
+          const away = d.n.clone().addScaledVector(targetN, -d.n.dot(targetN));
+          if (away.lengthSq() < 1e-4) away.crossVectors(d.n, UP);
+          away.normalize();
+          addLandedProp({ kind: "log", n: d.n.clone(), radius: 0.28, group: d.g, rollDirection: away, rollAngle: 0, baseScale: d.g.scale.clone() });
           drops.splice(i, 1);
           continue;
         }
@@ -35626,7 +37496,7 @@ void main() {
           drops.splice(i, 1);
           continue;
         }
-        if (d.landed && d.type === "banana" && d.groundTime >= 2) {
+        if (d.landed && goodDrop && d.groundTime >= 2) {
           world.remove(d.g);
           drops.splice(i, 1);
           continue;
@@ -35701,8 +37571,11 @@ void main() {
       for (let i = effects.length - 1; i >= 0; i--) {
         const e = effects[i];
         e.life -= dt;
-        e.g.scale.multiplyScalar(1 + dt * 7);
-        e.g.material.opacity = Math.max(0, e.life * 1.7);
+        if (e.update) e.update(dt, e);
+        else {
+          e.g.scale.multiplyScalar(1 + dt * 7);
+          if (e.g.material) e.g.material.opacity = Math.max(0, e.life * 1.7);
+        }
         if (e.life <= 0) {
           world.remove(e.g);
           effects.splice(i, 1);
@@ -35741,8 +37614,28 @@ void main() {
     if (k === "h" && qa) qaLandHive();
     if (k === "f" && qa) qaFallHive();
     if (k === "j" && qa) rockHitApe();
+    if (k === "b" && qa) logHeadHitApe();
     if (k === "t" && qa) tripApe();
     if (k === "g" && qa) rotateWorld(0.065, 0.018, true);
+    if (k === "l" && qa) qaLandLog();
+    if (k === "u" && qa) qaCatchReward("gem");
+    if (k === "y" && qa) qaCatchReward("heart");
+    if (k === "o" && qa) qaCatchReward("coconutDrink");
+    if (k === "x" && qa) qaCatchReward("star");
+    if (k === "p" && qa) spawnDrop("rock");
+    if (k === "q" && qa) spawnCargoBurst();
+    if (k === "w" && qa) spawnDrop("banana");
+    if (k === "z" && qa) {
+      cameraZoom = 0.48;
+      applyCameraZoom();
+    }
+    if (k === "v" && qa) {
+      reversalCooldown = 0;
+      reversalFall = true;
+      facing = 1;
+      tripApe();
+      document.documentElement.dataset.shakeEvent = "qa-reversal-fall";
+    }
     if (MOVE_KEYS.includes(k)) heldKeys[k] = true;
   });
   addEventListener("keyup", (e) => {

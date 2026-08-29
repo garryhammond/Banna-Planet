@@ -20,3 +20,22 @@ Thumbs.db
 # Secrets
 .env
 *.key
+
+# Local Blender authoring and visual-QA handoff files. These stay on the
+# workstation and are deliberately excluded from the public game repository.
+assets/hero/*.blend
+assets/hero/*.blend1
+assets/hero/*handoff*.zip
+assets/hero/HERO-HANDOFF.md
+assets/hero/banana-planet-hero-sculpt-candidate.glb
+assets/hero/reference/
+assets/hero/qa/
+assets/hero/hero-fur-v1.png
+tools/add_sculpt_references.py
+tools/create_hero_blender.py
+tools/create_sculpt_base.py
+tools/crop_hero_reference.ps1
+tools/refine_sculpt_face.py
+tools/render_hero_qa_angles.py
+tools/render_hero_rig_qa.py
+tools/rig_export_sculpt_candidate.py
