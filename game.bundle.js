@@ -35899,6 +35899,7 @@ void main() {
   var apeN = CAMERA_CENTER_NORMAL.clone();
   var targetN = apeN.clone();
   var runSpeed = 0;
+  var gestureDrive = 0;
   var recognize = 0;
   var score = 0;
   var health = 3;
@@ -36639,15 +36640,6 @@ void main() {
   var aggressiveShakeTime = 0;
   var lastHiveBuzz = 0;
   var treeShakeDrops = 0;
-  function triggerAggressiveReversal(prior) {
-    if (reversalCooldown > 0 || trip > 0 || hitTimer > 0 || knockedOut || Math.random() > 0.55) return;
-    reversalCooldown = 7.5;
-    reversalFall = true;
-    facing = prior.x >= 0 ? 1 : -1;
-    document.documentElement.dataset.shakeEvent = "reversal-fall";
-    tripApe();
-    toast.textContent = "WHOA!";
-  }
   function rotateWorld(dx, dy, userGesture = false) {
     if (Math.abs(dx) + Math.abs(dy) < 1e-6) return;
     const qx = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), dx);
@@ -36656,10 +36648,12 @@ void main() {
     globeImpulse.x = MathUtils.clamp(globeImpulse.x + dx, -0.08, 0.08);
     globeImpulse.y = MathUtils.clamp(globeImpulse.y + dy, -0.08, 0.08);
     if (userGesture) {
-      recognize = 0.1;
+      recognize = 0;
       const now = performance.now(), mag = Math.hypot(dx, dy), lastMag = lastGestureVector.length();
+      gestureDrive = MathUtils.clamp(0.12 + mag * 20, 0.12, 0.3);
+      runSpeed = Math.max(runSpeed, gestureDrive);
+      document.documentElement.dataset.gestureRunSpeed = runSpeed.toFixed(3);
       playRustle(Math.min(1, mag / 0.026));
-      if (now - lastGestureAt < 280 && mag > 6e-3 && lastMag > 6e-3 && (dx * lastGestureVector.x + dy * lastGestureVector.y) / (mag * lastMag) < -0.76) triggerAggressiveReversal(lastGestureVector);
       lastGestureVector.set(dx, dy);
       lastGestureAt = now;
     }
@@ -36794,9 +36788,9 @@ void main() {
       return;
     }
     if (!dragging) return;
-    const dx = (e.clientX - dragPrev.x) * 115e-5, dy = (e.clientY - dragPrev.y) * 115e-5;
+    const dx = (e.clientX - dragPrev.x) * 9e-4, dy = (e.clientY - dragPrev.y) * 9e-4;
     rotateWorld(dx, dy, true);
-    velocity.set(dx * 0.75, dy * 0.75);
+    velocity.set(dx * 0.6, dy * 0.6);
     dragPrev.set(e.clientX, e.clientY);
     lastMove = performance.now();
   });
@@ -36804,7 +36798,7 @@ void main() {
   canvas.addEventListener("pointercancel", finishPointer);
   var heldKeys = {};
   var MOVE_KEYS = ["arrowleft", "arrowright", "arrowup", "arrowdown", "a", "d", "w", "s"];
-  var KEY_TURN_SPEED = 22e-4;
+  var KEY_TURN_SPEED = 17e-4;
   function keyboardVector() {
     let x = 0, y = 0;
     if (heldKeys.arrowleft || heldKeys.a) x += 1;
@@ -36897,6 +36891,7 @@ void main() {
     return best;
   }
   function updateApe(dt, t) {
+    gestureDrive = Math.max(0, gestureDrive - dt * 1.8);
     obstacleGrace = Math.max(0, obstacleGrace - dt);
     avoidTimer = Math.max(0, avoidTimer - dt);
     if (avoidTimer <= 0) avoidObstacle = null;
@@ -36980,13 +36975,14 @@ void main() {
       recognize -= dt;
       runSpeed = Math.max(0, runSpeed - dt * 0.9);
     } else if (trip <= 0) {
-      const wanted = gap >= 0.19 ? 0.36 : gap >= 0.08 ? MathUtils.lerp(0.17, 0.32, (gap - 0.08) / 0.11) : Math.min(0.1, Math.max(0, (gap - 0.012) * 1.55));
-      runSpeed += MathUtils.clamp(wanted - runSpeed, -dt * 0.55, dt * 0.55);
+      const distanceWanted = gap >= 0.19 ? 0.48 : gap >= 0.08 ? MathUtils.lerp(0.22, 0.44, (gap - 0.08) / 0.11) : Math.min(0.11, Math.max(0, (gap - 0.012) * 1.75));
+      const wanted = Math.max(distanceWanted, gestureDrive);
+      runSpeed += MathUtils.clamp(wanted - runSpeed, -dt * 0.72, dt * 0.72);
       if (gap > 5e-3) {
         const previous = apeN.clone();
         const desired = tangentToward(apeN, targetN);
         let moveDir = desired.clone();
-        const fastCatchup = (gap >= 0.19 || runSpeed > 0.145) && obstacleGrace <= 0;
+        const fastCatchup = (gap >= 0.19 || runSpeed > 0.12) && obstacleGrace <= 0;
         if (lastGap > 0 && gap > lastGap - 35e-5 && runSpeed > 0.025) stuckTime += dt;
         else stuckTime = Math.max(0, stuckTime - dt * 2);
         lastGap = gap;
@@ -37325,7 +37321,7 @@ void main() {
         const kv = keyboardVector();
         if (kv.x || kv.y) {
           velocity.set(kv.x * KEY_TURN_SPEED, kv.y * KEY_TURN_SPEED);
-          recognize = 0.1;
+          recognize = 0;
         }
         rotateWorld(velocity.x, velocity.y);
         velocity.multiplyScalar(Math.pow(0.12, dt));

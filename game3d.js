@@ -394,7 +394,7 @@ for(let i=0;i<5;i++){const bird=new THREE.Group(),bodyBird=new THREE.Mesh(new TH
 const dizzyStars=new THREE.Group(),dizzyMat=new THREE.MeshStandardMaterial({color:0xffd52f,emissive:0x9b5600,emissiveIntensity:.8,roughness:.45});
 for(let i=0;i<5;i++){const shape=new THREE.Shape();for(let j=0;j<10;j++){const a=Math.PI/2+j*Math.PI/5,r=j%2?.025:.065;j?shape.lineTo(Math.cos(a)*r,Math.sin(a)*r):shape.moveTo(Math.cos(a)*r,Math.sin(a)*r);}shape.closePath();const star=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.018,bevelEnabled:true,bevelSegments:1,bevelSize:.006,bevelThickness:.005}),dizzyMat);star.userData.phase=i/5*Math.PI*2;dizzyStars.add(star);}dizzyStars.visible=false;apeModel.add(dizzyStars);
 
-let apeN=CAMERA_CENTER_NORMAL.clone(), targetN=apeN.clone(), runSpeed=0, recognize=0, score=0, health=3, running=false;
+let apeN=CAMERA_CENTER_NORMAL.clone(), targetN=apeN.clone(), runSpeed=0, gestureDrive=0, recognize=0, score=0, health=3, running=false;
 let trip=0, tripPhase='run', facing=1, lastTarget=new THREE.Vector3(),reversalFall=false,angryTimer=0,angryStompPlayed=false;
 let tripObstacle=null, obstacleGrace=0,avoidObstacle=null,avoidTimer=0,avoidSide=1,stuckTime=0,lastGap=0;
 let gaitPhase=0;
@@ -607,8 +607,19 @@ function rotateWorld(dx,dy,userGesture=false){
   world.quaternion.premultiply(qx).premultiply(qy).normalize();
   globeImpulse.x=THREE.MathUtils.clamp(globeImpulse.x+dx,-.08,.08);globeImpulse.y=THREE.MathUtils.clamp(globeImpulse.y+dy,-.08,.08);
   if(userGesture){
-    recognize=.1;const now=performance.now(),mag=Math.hypot(dx,dy),lastMag=lastGestureVector.length();playRustle(Math.min(1,mag/.026));
-    if(now-lastGestureAt<280&&mag>.006&&lastMag>.006&&(dx*lastGestureVector.x+dy*lastGestureVector.y)/(mag*lastMag)<-.76)triggerAggressiveReversal(lastGestureVector);
+    // Keep the center target live under the player's thumb. Re-applying the
+    // recognition delay on every pointermove made the ape wait until the drag
+    // ended before beginning its chase.
+    recognize=0;const now=performance.now(),mag=Math.hypot(dx,dy),lastMag=lastGestureVector.length();
+    // Pointer motion is a direct run command: the ape begins a visible gait on
+    // the same event that rotates the globe. Distance still controls where he
+    // travels, so this adds responsiveness without snapping him to the target.
+    gestureDrive=THREE.MathUtils.clamp(.12+mag*20,.12,.3);
+    runSpeed=Math.max(runSpeed,gestureDrive);
+    document.documentElement.dataset.gestureRunSpeed=runSpeed.toFixed(3);
+    playRustle(Math.min(1,mag/.026));
+    // Back-and-forth thumb steering is intentional control. Direction changes
+    // no longer trigger a random reversal fall; real obstacle impacts still do.
     lastGestureVector.set(dx,dy);lastGestureAt=now;
   }
 }
@@ -669,6 +680,7 @@ function clearRecoveryPoint(from,target){
   return best;
 }
 function updateApe(dt,t){
+  gestureDrive=Math.max(0,gestureDrive-dt*1.8);
   obstacleGrace=Math.max(0,obstacleGrace-dt);
   avoidTimer=Math.max(0,avoidTimer-dt);if(avoidTimer<=0)avoidObstacle=null;
   const inv=world.quaternion.clone().invert();targetN.copy(CAMERA_CENTER_NORMAL).applyQuaternion(inv).normalize();
@@ -694,7 +706,8 @@ function updateApe(dt,t){
   else if(trip<=0){
     // Spherical travel speed is capped to what the short legs can physically
     // support. This keeps root motion matched to visible steps instead of skating.
-    const wanted=gap>=.19?.4:gap>=.08?THREE.MathUtils.lerp(.2,.38,(gap-.08)/.11):Math.min(.11,Math.max(0,(gap-.012)*1.75));runSpeed+=THREE.MathUtils.clamp(wanted-runSpeed,-dt*.72,dt*.72);
+    const distanceWanted=gap>=.19?.48:gap>=.08?THREE.MathUtils.lerp(.22,.44,(gap-.08)/.11):Math.min(.11,Math.max(0,(gap-.012)*1.75));
+    const wanted=Math.max(distanceWanted,gestureDrive);runSpeed+=THREE.MathUtils.clamp(wanted-runSpeed,-dt*.72,dt*.72);
     if(gap>.005){
       const previous=apeN.clone();
       const desired=tangentToward(apeN,targetN);let moveDir=desired.clone();
@@ -815,7 +828,7 @@ let dropTimer=1.35,firstCargoScheduled=false,last=performance.now();
 function frame(now){
   const dt=Math.min(.033,(now-last)/1000);last=now;const t=now/1000;
   if(running){
-    if(!dragging){const kv=keyboardVector();if(kv.x||kv.y){velocity.set(kv.x*KEY_TURN_SPEED,kv.y*KEY_TURN_SPEED);recognize=.1;}rotateWorld(velocity.x,velocity.y);velocity.multiplyScalar(Math.pow(.12,dt));if(velocity.length()<.000018)velocity.set(0,0);}
+    if(!dragging){const kv=keyboardVector();if(kv.x||kv.y){velocity.set(kv.x*KEY_TURN_SPEED,kv.y*KEY_TURN_SPEED);recognize=0;}rotateWorld(velocity.x,velocity.y);velocity.multiplyScalar(Math.pow(.12,dt));if(velocity.length()<.000018)velocity.set(0,0);}
     updateShakeDynamics(dt,t);updateLandedProps(dt);updateApe(dt,t);if(++foliageCullFrame%6===0){for(const d of foliageDecor)d.g.visible=d.n.clone().applyQuaternion(world.quaternion).dot(CAMERA_CENTER_NORMAL)>-.12;}dropTimer-=dt;if(dropTimer<=0){if(planes.length<3){if(!firstCargoScheduled){firstCargoScheduled=true;spawnCargoBurst();}else if(Math.random()<.22)spawnCargoBurst();else spawnDrop();}dropTimer=2.8+Math.random()*2;}
     for(let i=planes.length-1;i>=0;i--){const p=planes[i],heavy=p.kind==='heavyCargo';p.progress+=dt*(heavy?.255:.36);p.g.position.copy(p.n).multiplyScalar(R+(heavy?CARGO_PLANE_ROUTE_HEIGHT:SMALL_PLANE_ROUTE_HEIGHT)).addScaledVector(p.tangent,(p.progress-.5)*(heavy?5.8:5.2));if(heavy)p.g.position.addScaledVector(p.skyLift,CARGO_PLANE_SKY_LIFT);p.g.quaternion.copy(p.orientation);const actualAltitude=p.g.position.length()-R;if(heavy)document.documentElement.dataset.cargoActualAltitude=actualAltitude.toFixed(2);else document.documentElement.dataset.smallActualAltitude=actualAltitude.toFixed(2);
       if(heavy){for(const prop of p.g.userData.props)prop.rotation.x+=dt*27;const open=THREE.MathUtils.smoothstep(p.progress,.25,.43)*(1-THREE.MathUtils.smoothstep(p.progress,.74,.91));p.g.userData.rampPivot.rotation.z=-open*.7;for(let j=0;j<3;j++){const preview=p.g.userData.cargoPreviews[j];if(preview.visible)preview.position.x-=dt*open*(.1+j*.035);const threshold=.45+j*.045;if(p.releasedCount===j&&p.progress>=threshold){preview.visible=false;p.releasedCount++;const dropHeight=6.25-j*.12,origin=p.g.position.clone().addScaledVector(p.tangent,-.82-j*.08),offset=origin.clone().addScaledVector(p.points[j],-(R+dropHeight));releaseDrop(p.types[j],p.points[j],dropHeight,offset);document.documentElement.dataset.cargoBurst=String(p.releasedCount);document.documentElement.dataset.cargoAltitude=(p.g.position.length()-R).toFixed(2);playCue('fall');}}

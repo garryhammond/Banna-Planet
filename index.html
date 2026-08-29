@@ -74,6 +74,6 @@
   gameMusicVolume.addEventListener('input',()=>{const value=Number(gameMusicVolume.value),enabled=value>0;gameMusicVolumeValue.textContent=`${value}%`;gameMusic.setAttribute('aria-pressed',String(enabled));gameMusic.textContent=enabled?'ON':'OFF';gameMusic.classList.toggle('selected',enabled);window.dispatchEvent(new CustomEvent('bp-music-volume',{detail:value/100}));});
   syncGameAudio();
 </script>
-    <script defer src="./game.bundle.js?v=blender-hero155"></script>
+    <script defer src="./game.bundle.js?v=direct-thumb-run156"></script>
 </body>
 </html>
