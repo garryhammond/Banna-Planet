@@ -34724,6 +34724,28 @@ void main() {
     o.start(now);
     o.stop(now + duration + 0.02);
   }
+  function apeVoiceSegment(delay, duration, fundamental, formant, volume, slide = 1) {
+    if (!soundEnabled || !audioCtx || audioCtx.state !== "running") return;
+    const now = audioCtx.currentTime + delay, o = audioCtx.createOscillator(), vibrato = audioCtx.createOscillator(), vibratoGain = audioCtx.createGain(), filter = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(fundamental, now);
+    o.frequency.exponentialRampToValueAtTime(Math.max(60, fundamental * slide), now + duration);
+    vibrato.frequency.value = 18;
+    vibratoGain.gain.value = 9;
+    vibrato.connect(vibratoGain).connect(o.frequency);
+    filter.type = "bandpass";
+    filter.frequency.value = formant;
+    filter.Q.value = 2.2;
+    g.gain.setValueAtTime(1e-4, now);
+    g.gain.exponentialRampToValueAtTime(volume, now + 0.018);
+    g.gain.setValueAtTime(volume * 0.82, now + duration * 0.58);
+    g.gain.exponentialRampToValueAtTime(1e-4, now + duration);
+    o.connect(filter).connect(g).connect(audioMaster);
+    o.start(now);
+    vibrato.start(now);
+    o.stop(now + duration + 0.02);
+    vibrato.stop(now + duration + 0.02);
+  }
   function noise(duration = 0.1, volume = 0.08, cutoff = 900) {
     if (!soundEnabled || !audioCtx || audioCtx.state !== "running") return;
     const frames = Math.max(1, Math.floor(audioCtx.sampleRate * duration)), buffer = audioCtx.createBuffer(1, frames, audioCtx.sampleRate), data = buffer.getChannelData(0);
@@ -34798,23 +34820,23 @@ void main() {
     if (!soundEnabled || !audioCtx || audioCtx.state !== "running") return;
     document.documentElement.dataset.lastMonkeyVocal = mood;
     if (mood === "happy") {
-      tone(310, 0.11, "sine", 0.07, 0.86);
-      setTimeout(() => tone(325, 0.1, "sine", 0.065, 0.84), 115);
-      setTimeout(() => tone(610, 0.075, "sawtooth", 0.05, 1.12), 235);
-      setTimeout(() => tone(690, 0.075, "sawtooth", 0.045, 0.92), 320);
+      apeVoiceSegment(0, 0.14, 165, 430, 0.075, 0.92);
+      apeVoiceSegment(0.15, 0.13, 172, 450, 0.07, 0.9);
+      apeVoiceSegment(0.3, 0.1, 225, 920, 0.065, 1.12);
+      apeVoiceSegment(0.41, 0.1, 238, 980, 0.06, 0.94);
     } else if (mood === "angry") {
-      tone(330, 0.085, "sine", 0.075, 0.78);
-      setTimeout(() => tone(350, 0.08, "sine", 0.07, 0.76), 85);
-      setTimeout(() => tone(680, 0.065, "sawtooth", 0.065, 0.86), 175);
-      setTimeout(() => tone(735, 0.065, "square", 0.05, 0.78), 250);
-      setTimeout(() => tone(310, 0.11, "sawtooth", 0.065, 0.62), 335);
-      if (Math.random() < 0.24) {
-        setTimeout(() => tone(470, 0.36, "sawtooth", 0.085, 1.7), 430);
-        setTimeout(() => tone(800, 0.22, "triangle", 0.07, 0.48), 690);
+      apeVoiceSegment(0, 0.13, 145, 390, 0.085, 0.82);
+      apeVoiceSegment(0.14, 0.12, 155, 410, 0.08, 0.8);
+      apeVoiceSegment(0.27, 0.1, 245, 1020, 0.075, 0.88);
+      apeVoiceSegment(0.38, 0.1, 260, 1120, 0.07, 0.82);
+      apeVoiceSegment(0.5, 0.15, 135, 520, 0.08, 0.68);
+      if (Math.random() < 0.3) {
+        apeVoiceSegment(0.7, 0.48, 190, 1280, 0.095, 1.65);
+        apeVoiceSegment(1.08, 0.28, 310, 1550, 0.075, 0.52);
       }
     } else {
-      tone(290, 0.12, "sawtooth", 0.07, 0.63);
-      setTimeout(() => tone(205, 0.16, "triangle", 0.065, 0.72), 80);
+      apeVoiceSegment(0, 0.2, 175, 720, 0.085, 0.62);
+      apeVoiceSegment(0.13, 0.22, 125, 470, 0.075, 0.7);
     }
   }
   var lastRustle = 0;
@@ -34992,7 +35014,29 @@ void main() {
   groundTexture.magFilter = LinearFilter;
   groundTexture.minFilter = LinearMipmapLinearFilter;
   var globeMat = new MeshPhysicalMaterial({ color: 12443547, map: groundTexture, bumpMap: groundTexture, bumpScale: 0.052, roughness: 0.94, metalness: 0, clearcoat: 0.02, clearcoatRoughness: 0.92 });
-  var globe = new Mesh(new SphereGeometry(R, 96, 64), globeMat);
+  var HOLE_NORMALS = Array.from({ length: 5 }, (_, i) => {
+    const lat = -0.42 + i * 0.21, lon = 1.05 + i * 1.17;
+    return new Vector3(Math.cos(lat) * Math.sin(lon), Math.sin(lat), Math.cos(lat) * Math.cos(lon)).normalize();
+  });
+  function cutGroundOpenings(geo) {
+    const src = geo.index.array, pos = geo.attributes.position, kept = [], v = new Vector3();
+    for (let i = 0; i < src.length; i += 3) {
+      v.set(0, 0, 0);
+      for (let j = 0; j < 3; j++) {
+        const k = src[i + j];
+        v.x += pos.getX(k);
+        v.y += pos.getY(k);
+        v.z += pos.getZ(k);
+      }
+      v.normalize().applyAxisAngle(new Vector3(1, 0, 0), 0.28);
+      const cut = HOLE_NORMALS.some((n) => v.angleTo(n) < 0.029);
+      if (!cut) kept.push(src[i], src[i + 1], src[i + 2]);
+    }
+    geo.setIndex(kept);
+    geo.computeVertexNormals();
+    return geo;
+  }
+  var globe = new Mesh(cutGroundOpenings(new SphereGeometry(R, 160, 112)), globeMat);
   globe.rotation.x = 0.28;
   globe.receiveShadow = true;
   world.add(globe);
@@ -35005,7 +35049,7 @@ void main() {
   groundDetailTexture.minFilter = LinearMipmapLinearFilter;
   groundDetailTexture.magFilter = LinearFilter;
   groundDetailMaterial = new MeshPhysicalMaterial({ color: 12180875, map: groundDetailTexture, bumpMap: groundDetailTexture, bumpScale: 0.034, roughness: 0.92, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-  var groundDetail = new Mesh(new SphereGeometry(R + 4e-3, 96, 64), groundDetailMaterial);
+  var groundDetail = new Mesh(cutGroundOpenings(new SphereGeometry(R + 4e-3, 160, 112)), groundDetailMaterial);
   groundDetail.rotation.copy(globe.rotation);
   groundDetail.receiveShadow = false;
   world.add(groundDetail);
@@ -35227,6 +35271,58 @@ void main() {
     t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     return t;
   }
+  function makeHoleSoilAlpha() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const x = c.getContext("2d"), g = x.createRadialGradient(128, 128, 54, 128, 128, 126);
+    g.addColorStop(0, "white");
+    g.addColorStop(0.68, "rgba(255,255,255,.94)");
+    g.addColorStop(0.86, "rgba(255,255,255,.58)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    x.fillStyle = g;
+    x.fillRect(0, 0, 256, 256);
+    return new CanvasTexture(c);
+  }
+  function makePitDepthTexture() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 512;
+    const x = c.getContext("2d"), g = x.createRadialGradient(265, 312, 20, 256, 250, 255);
+    g.addColorStop(0, "#000000");
+    g.addColorStop(0.48, "#030201");
+    g.addColorStop(0.64, "#171009");
+    g.addColorStop(0.79, "#422818");
+    g.addColorStop(0.91, "#704726");
+    g.addColorStop(1, "#a06f42");
+    x.fillStyle = g;
+    x.fillRect(0, 0, 512, 512);
+    const shade = x.createLinearGradient(0, 0, 0, 512);
+    shade.addColorStop(0, "rgba(241,186,108,.34)");
+    shade.addColorStop(0.28, "rgba(112,65,33,.08)");
+    shade.addColorStop(0.58, "rgba(24,14,8,.24)");
+    shade.addColorStop(1, "rgba(0,0,0,.68)");
+    x.fillStyle = shade;
+    x.fillRect(0, 0, 512, 512);
+    for (let j = 0; j < 6; j++) {
+      x.strokeStyle = `rgba(${116 - j * 9},${70 - j * 7},${38 - j * 4},${0.3 - j * 0.025})`;
+      x.lineWidth = 13 - j * 1.3;
+      x.beginPath();
+      x.ellipse(256, 252, 224 - j * 31, (224 - j * 31) * 0.72, -0.04, 0, Math.PI * 2);
+      x.stroke();
+    }
+    let s = 4231;
+    const rnd = () => (s = s * 1664525 + 1013904223 >>> 0) / 4294967296;
+    for (let i = 0; i < 620; i++) {
+      const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * 238, px2 = 256 + Math.cos(a) * r, py2 = 256 + Math.sin(a) * r * 0.72;
+      x.fillStyle = `rgba(${48 + Math.floor(rnd() * 82)},${28 + Math.floor(rnd() * 48)},${14 + Math.floor(rnd() * 29)},${0.1 + rnd() * 0.24})`;
+      x.beginPath();
+      x.ellipse(px2, py2, 1 + rnd() * 5, 0.7 + rnd() * 2.6, rnd() * Math.PI, 0, Math.PI * 2);
+      x.fill();
+    }
+    const t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    return t;
+  }
   var palmLeafTexture = makePalmLeafTexture();
   var coconutHuskTexture = makeCoconutHuskTexture();
   var referenceFrondGeo = new ExtrudeGeometry(referenceFrondShape, { depth: 0.026, bevelEnabled: true, bevelSegments: 2, bevelSize: 0.01, bevelThickness: 9e-3 });
@@ -35421,7 +35517,11 @@ void main() {
   var bushCardGeometry = new PlaneGeometry(1.35, 0.9, 1, 1);
   bushCardGeometry.translate(0, 0.45, 0);
   var bushCardMaterial = new MeshBasicMaterial({ map: bushCardTexture, transparent: true, alphaTest: 0.08, side: DoubleSide, depthWrite: true, toneMapped: false });
+  function reservedHoleZone(n, margin = 0.09) {
+    return HOLE_NORMALS.some((h) => h.angleTo(n) < margin);
+  }
   function tree(n, s = 1) {
+    if (reservedHoleZone(n)) return;
     const g = new Group();
     const trunk = new Mesh(new CylinderGeometry(0.13, 0.23, 1.5, 9), bark);
     trunk.position.y = 0.68;
@@ -35474,6 +35574,7 @@ void main() {
     props.push({ kind: "tree", style: "jungle", n, radius: 0.28 * s, group: g, baseQuaternion: g.quaternion.clone(), sway: new Vector2(), swayVelocity: new Vector2() });
   }
   function palm(n, s = 0.8) {
+    if (reservedHoleZone(n)) return;
     const g = new Group();
     const trunkCurve = new CatmullRomCurve3([new Vector3(0, 0, 0), new Vector3(0.035, 0.5, 0), new Vector3(0.11, 1.08, 0.015), new Vector3(0.2, 1.65, 0)]), trunk = new Mesh(new TubeGeometry(trunkCurve, 24, 0.09, 9, false), bark);
     g.add(trunk);
@@ -35563,6 +35664,7 @@ void main() {
   }
   var rockId = 0;
   function rock(n, s = 0.5) {
+    if (reservedHoleZone(n)) return;
     const g = new Group(), id = rockId++;
     const geo = id % 3 === 0 ? new DodecahedronGeometry(0.55, 1) : id % 3 === 1 ? new IcosahedronGeometry(0.57, 1) : new SphereGeometry(0.55, 8, 6);
     const m = new Mesh(geo, rockMat), wide = 0.95 + id % 5 * 0.11, tall = 0.58 + id % 4 * 0.1, deep = 0.82 + id * 3 % 5 * 0.08;
@@ -35589,6 +35691,7 @@ void main() {
     props.push({ kind: "rock", n, radius: 0.18 * s, group: g });
   }
   function log(n, s = 0.55) {
+    if (reservedHoleZone(n)) return;
     const g = new Group();
     const m = new Mesh(new CylinderGeometry(0.22, 0.28, 1.45, 12), brown);
     m.rotation.z = Math.PI / 2;
@@ -35619,6 +35722,7 @@ void main() {
     props.push({ kind: "log", n, radius: 0.48 * s, group: g });
   }
   function foliage(n, s = 0.3) {
+    if (reservedHoleZone(n)) return;
     const g = new Group(), cards = new InstancedMesh(bushCardGeometry, bushCardMaterial, 3), dummy = new Object3D();
     for (let i = 0; i < 3; i++) {
       dummy.position.set(i === 0 ? 0 : i === 1 ? 0.025 : -0.025, i === 0 ? 0.015 : 0, i === 0 ? 0.012 : -0.012);
@@ -35636,6 +35740,7 @@ void main() {
     foliageDecor.push({ n: n.clone(), g });
   }
   function grassTuft(n, s = 0.5) {
+    if (reservedHoleZone(n)) return;
     const g = new Group();
     for (let i = 0; i < 6; i++) {
       const blade = new Mesh(new ConeGeometry(0.025, 0.25, 5), i % 2 ? leaf : leaf2);
@@ -35647,6 +35752,7 @@ void main() {
     plant(shadowify(g), n, 0.01);
   }
   function flower(n, color = 16743324, s = 0.55) {
+    if (reservedHoleZone(n)) return;
     const g = new Group(), stemMat = new MeshStandardMaterial({ color: 3373876, roughness: 0.9 }), petalMat = new MeshStandardMaterial({ color, roughness: 0.72 }), centerMat = new MeshStandardMaterial({ color: 16766814, roughness: 0.75 });
     const stem = new Mesh(new CylinderGeometry(0.012, 0.018, 0.2, 6), stemMat);
     stem.position.y = 0.1;
@@ -35673,14 +35779,14 @@ void main() {
     const y = 1 - (i + 0.5) / MAIN_WORLD_PROP_COUNT * 2, lat = Math.asin(y), lon = i * 2.399963;
     const n = normalAt(lat, lon), k = i % 15;
     if (n.angleTo(CAMERA_CENTER_NORMAL) < 0.15) foliage(n, 0.55);
-    else if (k === 0 || k === 7) {
+    else if (k === 0) {
       if (i % 4 === 0) palm(n, 0.66 + i % 4 * 0.045);
       else tree(n, 0.58 + i % 5 * 0.05);
-    } else if (k === 3 || k === 10) rock(n, 0.42 + i % 4 * 0.06);
-    else if (k === 5) log(n, 0.48 + i % 3 * 0.07);
+    } else if (k === 4) rock(n, 0.42 + i % 4 * 0.06);
+    else if (k === 8) log(n, 0.48 + i % 3 * 0.07);
     else foliage(n, 0.55 + i % 3 * 0.08);
   }
-  var EXTRA_PALM_COUNT = 32;
+  var EXTRA_PALM_COUNT = 18;
   for (let i = 0; i < EXTRA_PALM_COUNT; i++) {
     const y = 1 - (i + 0.5) / EXTRA_PALM_COUNT * 2;
     palm(normalAt(Math.asin(y), i * 2.399963 + 1.1), 0.62 + i % 5 * 0.055);
@@ -35693,44 +35799,65 @@ void main() {
     else grassTuft(n, 0.38 + i % 4 * 0.05);
   }
   var holeSoilTexture = makeHoleSoilTexture();
-  function groundHole(n, s = 1) {
-    const g = new Group(), pitMat = new MeshBasicMaterial({ color: 525828, side: DoubleSide }), soilMat = new MeshStandardMaterial({ color: 7031085, map: holeSoilTexture, bumpMap: holeSoilTexture, bumpScale: 0.045, roughness: 1 });
-    const openingShape = new Shape();
-    for (let i = 0; i < 32; i++) {
-      const a = i / 32 * Math.PI * 2, r = 0.43 * (0.96 + 0.045 * Math.sin(i * 4.9) + 0.025 * Math.cos(i * 7.7)), x = Math.cos(a) * r, z = Math.sin(a) * r * 0.72;
-      i ? openingShape.lineTo(x, z) : openingShape.moveTo(x, z);
+  var holeSoilAlpha = makeHoleSoilAlpha();
+  var pitDepthTexture = makePitDepthTexture();
+  function roundedHoleShape(radius, aspect2, phase = 0, variance = 0.055) {
+    const pts = [];
+    for (let i = 0; i < 14; i++) {
+      const a = i / 14 * Math.PI * 2, r = radius * (1 + variance * Math.sin(a * 3 + phase) + variance * 0.58 * Math.cos(a * 5 - phase * 0.7));
+      pts.push(new Vector2(Math.cos(a) * r, Math.sin(a) * r * aspect2));
     }
-    openingShape.closePath();
+    const sh = new Shape(), first = pts[0], last2 = pts[pts.length - 1];
+    sh.moveTo((last2.x + first.x) / 2, (last2.y + first.y) / 2);
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i], next = pts[(i + 1) % pts.length];
+      sh.quadraticCurveTo(p.x, p.y, (p.x + next.x) / 2, (p.y + next.y) / 2);
+    }
+    sh.closePath();
+    return sh;
+  }
+  function irregularPitWall() {
+    const seg = 28, rings = 3, pos = [], uv = [], idx = [];
+    for (let j = 0; j < rings; j++) {
+      const y = 0.045 - j * 0.095, base = [0.44, 0.37, 0.27][j];
+      for (let i = 0; i < seg; i++) {
+        const a = i / seg * Math.PI * 2, rough = 1 + 0.055 * Math.sin(a * 3.1 + j * 0.8) + 0.04 * Math.cos(a * 6.2 - j), r = base * rough;
+        pos.push(Math.cos(a) * r, y, Math.sin(a) * r * 0.72);
+        uv.push(i / seg, j / (rings - 1));
+      }
+    }
+    for (let j = 0; j < rings - 1; j++) for (let i = 0; i < seg; i++) {
+      const n = (i + 1) % seg, a = j * seg + i, b = j * seg + n, c = (j + 1) * seg + n, d = (j + 1) * seg + i;
+      idx.push(a, d, b, b, d, c);
+    }
+    const geo = new BufferGeometry();
+    geo.setAttribute("position", new Float32BufferAttribute(pos, 3));
+    geo.setAttribute("uv", new Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  }
+  function groundHole(n, s = 1) {
+    const g = new Group(), pitMat = new MeshBasicMaterial({ map: pitDepthTexture, color: 16777215, side: DoubleSide }), soilMat = new MeshStandardMaterial({ color: 10580548, map: holeSoilTexture, bumpMap: holeSoilTexture, bumpScale: 0.07, roughness: 1 });
+    const openingShape = roundedHoleShape(0.3, 0.72, 0.8, 0.075);
     const pit = new Mesh(new ShapeGeometry(openingShape), pitMat);
     pit.rotation.x = -Math.PI / 2;
-    pit.position.y = 0.034;
-    pit.renderOrder = 3;
+    pit.position.y = -0.17;
     g.add(pit);
-    const bankShape = new Shape();
-    for (let i = 0; i < 28; i++) {
-      const a = i / 28 * Math.PI * 2, r = 0.59 * (0.94 + 0.07 * Math.sin(i * 3.7) + 0.035 * Math.cos(i * 8.1)), x = Math.cos(a) * r, z = Math.sin(a) * r * 0.77;
-      i ? bankShape.lineTo(x, z) : bankShape.moveTo(x, z);
-    }
-    bankShape.closePath();
+    const bankShape = roundedHoleShape(0.86, 0.74, 2.1, 0.13);
+    bankShape.holes.push(roundedHoleShape(0.445, 0.72, 0.8, 0.075));
     const dirtBank = new Mesh(new ShapeGeometry(bankShape), soilMat);
     dirtBank.rotation.x = -Math.PI / 2;
     dirtBank.position.y = 0.024;
     dirtBank.receiveShadow = true;
     g.add(dirtBank);
-    const patchColors = [9134135, 6043681, 10514498, 7357993];
-    for (let i = 0; i < 9; i++) {
-      const a = 0.18 + i * 2.399963, r = 0.45 + i % 3 * 0.045, patch = new Mesh(new CircleGeometry(0.075 + i % 4 * 0.012, 7), new MeshStandardMaterial({ color: patchColors[i % patchColors.length], map: holeSoilTexture, roughness: 1 }));
-      patch.rotation.x = -Math.PI / 2;
-      patch.rotation.z = i * 0.73;
-      patch.position.set(Math.cos(a) * r, 0.041, Math.sin(a) * r * 0.73);
-      patch.scale.set(1.45, 0.68, 1);
-      patch.receiveShadow = true;
-      g.add(patch);
-    }
-    const grainMat = new MeshStandardMaterial({ color: 2628371, roughness: 1 }), grainGeo = new DodecahedronGeometry(0.018, 0), grains = new InstancedMesh(grainGeo, grainMat, 14), grainDummy = new Object3D();
-    for (let i = 0; i < 14; i++) {
-      const a = i * 2.399963 + 0.2, r = 0.44 + i % 4 * 0.035;
-      grainDummy.position.set(Math.cos(a) * r, 0.039, Math.sin(a) * r * 0.74);
+    const wallMat = new MeshStandardMaterial({ color: 5189403, map: holeSoilTexture, bumpMap: holeSoilTexture, bumpScale: 0.085, roughness: 1, side: DoubleSide }), wall = new Mesh(irregularPitWall(), wallMat);
+    wall.receiveShadow = true;
+    g.add(wall);
+    const grainMat = new MeshStandardMaterial({ color: 3679e3, roughness: 1 }), grainGeo = new DodecahedronGeometry(0.018, 0), grains = new InstancedMesh(grainGeo, grainMat, 18), grainDummy = new Object3D();
+    for (let i = 0; i < 18; i++) {
+      const a = i * 2.399963 + 0.2, r = 0.51 + i % 5 * 0.048;
+      grainDummy.position.set(Math.cos(a) * r, 0.043, Math.sin(a) * r * 0.74);
       grainDummy.rotation.set(i * 0.31, i * 0.77, 0);
       grainDummy.scale.set(1 + i % 3 * 0.3, 0.32, 0.7 + i % 2 * 0.25);
       grainDummy.updateMatrix();
@@ -35738,29 +35865,32 @@ void main() {
     }
     grains.instanceMatrix.needsUpdate = true;
     g.add(grains);
-    for (let i = 0; i < 5; i++) {
-      const a = [0.38, 1.74, 2.68, 4.12, 5.05][i], r = 0.47 + i % 2 * 0.04, clod = new Mesh(new DodecahedronGeometry(0.035 + i % 3 * 9e-3, 0), i === 1 || i === 4 ? rockMat : soilMat);
-      clod.position.set(Math.cos(a) * r, 0.052, Math.sin(a) * r * 0.72);
-      clod.scale.set(1.2, 0.45, 0.78);
+    for (let i = 0; i < 7; i++) {
+      const a = [0.38, 1.12, 1.74, 2.68, 3.56, 4.42, 5.35][i], r = 0.59 + i % 3 * 0.08, clod = new Mesh(new SphereGeometry(0.045 + i % 3 * 0.012, 10, 7), i === 1 || i === 3 || i === 6 ? rockMat : soilMat);
+      clod.position.set(Math.cos(a) * r, 0.056, Math.sin(a) * r * 0.72);
+      clod.scale.set(1.35, 0.55, 0.85);
       clod.rotation.y = -a + i * 0.31;
       clod.castShadow = true;
       g.add(clod);
     }
     const rootMat = new MeshStandardMaterial({ color: 5320732, roughness: 1 });
     for (const a of [0.34, 3.62]) {
-      const root = new Mesh(new CylinderGeometry(0.018, 0.028, 0.38, 7), rootMat);
+      const root = new Mesh(new CylinderGeometry(0.018, 0.028, 0.34, 7), rootMat);
       root.rotation.z = Math.PI / 2;
       root.rotation.y = -a;
-      root.position.set(Math.cos(a) * 0.34, 0.058, Math.sin(a) * 0.25);
+      root.position.set(Math.cos(a) * 0.5, 0.058, Math.sin(a) * 0.37);
       g.add(root);
     }
-    const edgeGrassMat = new MeshStandardMaterial({ color: 4682791, roughness: 0.92 });
-    for (let i = 0; i < 7; i++) {
-      const a = 0.7 + i * 1.37, r = 0.55 + i % 2 * 0.025, blade = new Mesh(new ConeGeometry(0.016, 0.12, 4), edgeGrassMat);
-      blade.position.set(Math.cos(a) * r, 0.074, Math.sin(a) * r * 0.74);
-      blade.rotation.z = i % 2 ? -0.16 : 0.2;
-      blade.rotation.y = -a;
-      g.add(blade);
+    const edgeGrassMat = new MeshStandardMaterial({ color: 7050295, roughness: 0.92 });
+    for (let i = 0; i < 6; i++) {
+      const a = 0.7 + i * 1.73, r = 0.72 + i % 2 * 0.04;
+      for (let j = 0; j < 3; j++) {
+        const blade = new Mesh(new ConeGeometry(0.011, 0.09 + j * 0.018, 5), edgeGrassMat);
+        blade.position.set(Math.cos(a) * r + (j - 1) * 0.018, 0.071, Math.sin(a) * r * 0.74);
+        blade.rotation.z = (j - 1) * 0.24;
+        blade.rotation.y = -a;
+        g.add(blade);
+      }
     }
     for (let i = props.length - 1; i >= 0; i--) {
       if (n.angleTo(props[i].n) < 0.065) {
@@ -35772,7 +35902,7 @@ void main() {
     plant(g, n, 2e-3);
     props.push({ kind: "hole", n: n.clone(), radius: 0.36 * s, group: g });
   }
-  for (let i = 0; i < 5; i++) groundHole(normalAt(-0.42 + i * 0.21, 1.05 + i * 1.17), 0.88 + i % 2 * 0.12);
+  for (let i = 0; i < 5; i++) groundHole(HOLE_NORMALS[i], 0.88 + i % 2 * 0.12);
   var midX = new Vector3(1, 0, 0);
   var midY = new Vector3(0, 1, 0);
   function midNormal(depth, side) {
