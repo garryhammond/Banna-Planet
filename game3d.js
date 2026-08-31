@@ -5,11 +5,15 @@ document.documentElement.dataset.gameModule='booting';
 const canvas = document.querySelector('#game');
 const start = document.querySelector('#start');
 const scoreEl = document.querySelector('#score');
+const levelEl = document.querySelector('#best');
 const healthEl = document.querySelector('#health');
+const livesEl = document.querySelector('#lives');
 const debugEl = document.querySelector('#debug');
 const toast = document.querySelector('#toast');
 const cardTitle=document.querySelector('.card h2'),cardText=document.querySelector('.card p'),playButton=document.querySelector('#play');
-let W = 390, H = 844; const R = 10.5;
+let W = 390, H = 844;
+const PLANET_SCALE = 1.3;
+const R = 10.5 * PLANET_SCALE;
 let audioCtx=null,audioMaster=null,musicMaster=null,audioLimiter=null,musicTimer=null,musicStep=0,masterLevel=Math.max(0,Math.min(1,Number(localStorage.getItem('bpVolume')??.65))),musicLevel=Math.max(0,Math.min(1,Number(localStorage.getItem('bpMusicVolume')??.35))),soundEnabled=localStorage.getItem('bpSound')!=='off'&&masterLevel>0,musicEnabled=localStorage.getItem('bpMusic')!=='off'&&musicLevel>0,lastStepBeat=-1,soundCount=0;
 const soundStatus=document.querySelector('#sound-status');
 function showSoundStatus(text){if(!soundStatus)return;soundStatus.textContent=text;soundStatus.classList.add('visible');clearTimeout(showSoundStatus.timer);showSoundStatus.timer=setTimeout(()=>soundStatus.classList.remove('visible'),1700);}
@@ -46,8 +50,8 @@ scene.fog = new THREE.FogExp2(0x78aebf, .019);
 const camera = new THREE.PerspectiveCamera(38, W/H, .1, 120);
 // Close gameplay framing: the world remains a complete sphere, but the viewport
 // concentrates on roughly one quarter of its surface around the camera-facing center.
-camera.position.set(0,.55,11.25);
-const CAMERA_LOOK = new THREE.Vector3(0,25.0,0);
+camera.position.set(0,.55*PLANET_SCALE,11.25*PLANET_SCALE);
+const CAMERA_LOOK = new THREE.Vector3(0,25.0*PLANET_SCALE,0);
 camera.lookAt(CAMERA_LOOK);
 const CLOSE_CAMERA_POSITION=camera.position.clone();
 let cameraZoom=.14,groundDetailMaterial=null;
@@ -65,7 +69,7 @@ const CAMERA_CENTER_NORMAL = camera.position.clone().addScaledVector(centerRay,c
 CAMERA_CENTER_NORMAL.applyAxisAngle(new THREE.Vector3(1,0,0),.025).normalize();
 const CAMERA_ZOOM_FOCUS=CAMERA_CENTER_NORMAL.clone().multiplyScalar(R);
 const CAMERA_ZOOM_DIRECTION=CLOSE_CAMERA_POSITION.clone().sub(CAMERA_ZOOM_FOCUS).normalize();
-const OVERVIEW_CAMERA_POSITION=CAMERA_ZOOM_FOCUS.clone().addScaledVector(CAMERA_ZOOM_DIRECTION,58);
+const OVERVIEW_CAMERA_POSITION=CAMERA_ZOOM_FOCUS.clone().addScaledVector(CAMERA_ZOOM_DIRECTION,58*PLANET_SCALE);
 function applyCameraZoom(){
   const blend=THREE.MathUtils.smoothstep(cameraZoom,0,1);
   camera.position.lerpVectors(CLOSE_CAMERA_POSITION,OVERVIEW_CAMERA_POSITION,blend);
@@ -171,7 +175,7 @@ const props=[],foliageDecor=[];let foliageCullFrame=0;
 const MAX_LANDED_PROPS=40;
 const landedProps=[];
 function removeLandedProp(entry){const landedIndex=landedProps.indexOf(entry),propIndex=props.indexOf(entry);if(landedIndex>=0)landedProps.splice(landedIndex,1);if(propIndex>=0)props.splice(propIndex,1);world.remove(entry.group);}
-function addLandedProp(entry){entry.groundTime=0;entry.life=6;props.push(entry);landedProps.push(entry);if(landedProps.length>MAX_LANDED_PROPS)removeLandedProp(landedProps[0]);}
+function addLandedProp(entry){entry.groundTime=0;entry.life=12;props.push(entry);landedProps.push(entry);if(landedProps.length>MAX_LANDED_PROPS)removeLandedProp(landedProps[0]);}
 function updateLandedProps(dt){
   for(let i=landedProps.length-1;i>=0;i--){const p=landedProps[i];p.groundTime+=dt;
     if(p.kind==='log'&&p.rollDirection&&p.groundTime<1.8){
@@ -180,8 +184,8 @@ function updateLandedProps(dt){
     }
     // Logs and rocks remain genuine obstacles for several seconds, then blink
     // quickly before cleanup so their removal never surprises the player.
-    p.group.visible=p.groundTime<5.15||Math.floor((p.groundTime-5.15)*12)%2===0;
-    if(p.baseScale&&p.groundTime>5.15)p.group.scale.copy(p.baseScale).multiplyScalar(Math.max(.05,1-(p.groundTime-5.15)/.85));
+    p.group.visible=p.groundTime<10.3||Math.floor((p.groundTime-10.3)*12)%2===0;
+    if(p.baseScale&&p.groundTime>10.3)p.group.scale.copy(p.baseScale).multiplyScalar(Math.max(.05,1-(p.groundTime-10.3)/1.7));
     if(p.groundTime>=p.life)removeLandedProp(p);
   }
 }
@@ -284,8 +288,9 @@ let dirtPatchId=0;
 function dirtPatch(){dirtPatchId++;}
 
 // Fibonacci coverage distributes geometry around the complete sphere, while leaving broad routes.
-for(let i=0;i<360;i++){
-  const y=1-(i+.5)/360*2, lat=Math.asin(y), lon=i*2.399963;
+const MAIN_WORLD_PROP_COUNT=240;
+for(let i=0;i<MAIN_WORLD_PROP_COUNT;i++){
+  const y=1-(i+.5)/MAIN_WORLD_PROP_COUNT*2, lat=Math.asin(y), lon=i*2.399963;
   const n=normalAt(lat,lon), k=i%15;
   if(n.angleTo(CAMERA_CENTER_NORMAL)<.15) foliage(n,.55);
   else if(k===0||k===7){if(i%4===0)palm(n,.66+(i%4)*.045);else tree(n, .58+(i%5)*.05);}
@@ -293,11 +298,13 @@ for(let i=0;i<360;i++){
   else if(k===5) log(n,.48+(i%3)*.07);
   else foliage(n,.55+(i%3)*.08);
 }
-for(let i=0;i<48;i++){const y=1-(i+.5)/48*2;palm(normalAt(Math.asin(y),i*2.399963+1.1),.62+(i%5)*.055);}
+const EXTRA_PALM_COUNT=32;
+for(let i=0;i<EXTRA_PALM_COUNT;i++){const y=1-(i+.5)/EXTRA_PALM_COUNT*2;palm(normalAt(Math.asin(y),i*2.399963+1.1),.62+(i%5)*.055);}
 
 // Non-blocking surface dressing is distributed over the complete planet.
-for(let i=0;i<140;i++){
-  const y=1-(i+.35)/140*2,n=normalAt(Math.asin(y),i*2.399963+.73);
+const GROUND_DRESSING_COUNT=90;
+for(let i=0;i<GROUND_DRESSING_COUNT;i++){
+  const y=1-(i+.35)/GROUND_DRESSING_COUNT*2,n=normalAt(Math.asin(y),i*2.399963+.73);
   if(i%17===0)flower(n,i%34?0xff83a8:0xffc85c,.5);
   else if(i%11===0)dirtPatch(n,.55);
   else grassTuft(n,.38+(i%4)*.05);
@@ -316,6 +323,10 @@ for(const [d,s] of [[.018,-.035],[.045,.018],[.075,-.012],[.11,.03]])dirtPatch(m
 dirtPatch(midNormal(-.055,-.11),.92);dirtPatch(midNormal(-.075,.1),.82);
 grassTuft(midNormal(.04,-.09),.7);grassTuft(midNormal(.07,.11),.65);grassTuft(midNormal(.13,-.05),.6);
 flower(midNormal(.055,-.13),0xff7fa5,.75);flower(midNormal(.095,.12),0xffcf62,.68);flower(midNormal(.14,.045),0xff8dbb,.6);
+document.documentElement.dataset.planetRadius=R.toFixed(2);
+document.documentElement.dataset.mainWorldProps=String(MAIN_WORLD_PROP_COUNT);
+document.documentElement.dataset.extraPalms=String(EXTRA_PALM_COUNT);
+document.documentElement.dataset.groundDressing=String(GROUND_DRESSING_COUNT);
 // Close-ground hero scatter uses two shared instanced meshes: crisp stones and
 // clover remain readable near the ape without creating dozens of draw calls.
 const detailStoneGeo=new THREE.DodecahedronGeometry(1,0),detailStones=new THREE.InstancedMesh(detailStoneGeo,rockMat,14),detailDummy=new THREE.Object3D();
@@ -394,7 +405,8 @@ for(let i=0;i<5;i++){const bird=new THREE.Group(),bodyBird=new THREE.Mesh(new TH
 const dizzyStars=new THREE.Group(),dizzyMat=new THREE.MeshStandardMaterial({color:0xffd52f,emissive:0x9b5600,emissiveIntensity:.8,roughness:.45});
 for(let i=0;i<5;i++){const shape=new THREE.Shape();for(let j=0;j<10;j++){const a=Math.PI/2+j*Math.PI/5,r=j%2?.025:.065;j?shape.lineTo(Math.cos(a)*r,Math.sin(a)*r):shape.moveTo(Math.cos(a)*r,Math.sin(a)*r);}shape.closePath();const star=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.018,bevelEnabled:true,bevelSegments:1,bevelSize:.006,bevelThickness:.005}),dizzyMat);star.userData.phase=i/5*Math.PI*2;dizzyStars.add(star);}dizzyStars.visible=false;apeModel.add(dizzyStars);
 
-let apeN=CAMERA_CENTER_NORMAL.clone(), targetN=apeN.clone(), runSpeed=0, gestureDrive=0, recognize=0, score=0, health=3, running=false;
+const MAX_HEALTH=5,MAX_LIVES=3,BASE_LEVEL_GOAL=50;
+let apeN=CAMERA_CENTER_NORMAL.clone(), targetN=apeN.clone(), runSpeed=0, gestureDrive=0, recognize=0, score=0, health=MAX_HEALTH,lives=MAX_LIVES,level=1,levelGoal=BASE_LEVEL_GOAL,levelCleared=false,running=false;
 let trip=0, tripPhase='run', facing=1, lastTarget=new THREE.Vector3(),reversalFall=false,angryTimer=0,angryStompPlayed=false;
 let tripObstacle=null, obstacleGrace=0,avoidObstacle=null,avoidTimer=0,avoidSide=1,stuckTime=0,lastGap=0;
 let gaitPhase=0;
@@ -474,7 +486,8 @@ installTreeHives();
 // Full reference-board cargo roster. Bananas remain the most common reward,
 // while the visually brighter premium pickups stay special and hazards retain
 // enough frequency to keep each flight meaningful.
-const DROP_WEIGHTS=[['banana',.34],['coconutDrink',.08],['star',.045],['gem',.065],['heart',.05],['rock',.15],['log',.12],['bomb',.09],['hive',.06]];
+const DROP_WEIGHTS=[['banana',.42],['coconutDrink',.09],['star',.05],['gem',.09],['heart',.05],['rock',.11],['log',.08],['bomb',.06],['hive',.05]];
+document.documentElement.dataset.goodDropChance='0.70';
 const SMALL_PLANE_MODEL_SCALE=.42,CARGO_PLANE_MODEL_SCALE=.62,SMALL_PLANE_ROUTE_HEIGHT=4.2,CARGO_PLANE_ROUTE_HEIGHT=6.5,CARGO_PLANE_SKY_LIFT=9;
 Object.assign(document.documentElement.dataset,{smallPlaneScale:SMALL_PLANE_MODEL_SCALE.toFixed(2),cargoPlaneScale:CARGO_PLANE_MODEL_SCALE.toFixed(2),smallPlaneRouteHeight:SMALL_PLANE_ROUTE_HEIGHT.toFixed(2),cargoPlaneRouteHeight:CARGO_PLANE_ROUTE_HEIGHT.toFixed(2),cargoHeightRatio:(CARGO_PLANE_ROUTE_HEIGHT/SMALL_PLANE_ROUTE_HEIGHT).toFixed(2)});
 function pickDropType(){let r=Math.random();for(const [type,weight] of DROP_WEIGHTS){if(r<weight)return type;r-=weight;}return DROP_WEIGHTS[0][0];}
@@ -578,6 +591,8 @@ function spawnCargoBurst(){
 function qaLandHive(){const n=apeN.clone().applyAxisAngle(new THREE.Vector3(0,1,0),.035).normalize(),g=makeHive(),drop={type:'hive',n,g,h:.015,vy:0,landed:true,groundTime:0,triggered:false};world.add(g);drops.push(drop);spawnBees(drop);}
 function qaFallHive(){const n=apeN.clone().applyAxisAngle(new THREE.Vector3(0,1,0),.055).normalize(),g=makeHive(),drop={type:'hive',n,g,h:1.45,vy:.3,landed:false,groundTime:0,triggered:false};world.add(g);drops.push(drop);spawnBees(drop);}
 function qaCatchBanana(){const g=makeBanana(),drop={type:'banana',n:apeN.clone(),g,h:.22,vy:.6,landed:false,groundTime:0,triggered:false};world.add(g);drops.push(drop);}
+function qaLandBanana(){const g=makeBanana(),drop={type:'banana',n:offsetDropPoint(apeN,.2),g,h:.015,vy:0,landed:true,groundTime:0,triggered:false};world.add(g);drops.push(drop);}
+function qaFinalLife(){health=1;lives=1;updateHUD();}
 function qaLandLog(){const g=makeFallingLog(),drop={type:'log',n:offsetDropPoint(apeN,.055),g,h:.015,vy:0,landed:true,groundTime:0,triggered:false};world.add(g);drops.push(drop);}
 function qaCatchReward(type){const g=type==='heart'?makeHeart():type==='coconutDrink'?makeCoconutDrink():type==='star'?makeStar():makeGem(),drop={type,n:apeN.clone(),g,h:.2,vy:.25,landed:false,groundTime:0,triggered:false};world.add(g);drops.push(drop);}
 
@@ -588,7 +603,7 @@ function spawnBees(hive){
   }
   g.position.copy(hive.n).multiplyScalar(R+hive.h+.07);g.quaternion.setFromUnitVectors(UP,hive.n);world.add(g);
   const trailMat=new THREE.LineBasicMaterial({color:0xffd84d,transparent:true,opacity:0}),trail=new THREE.Line(new THREE.BufferGeometry().setFromPoints([g.position.clone(),g.position.clone()]),trailMat);trail.visible=false;world.add(trail);
-  bees.push({g,trail,n:hive.n.clone(),origin:hive.n.clone(),target:apeN.clone(),source:hive,life:10,travel:0,mode:'orbit',hit:false,armed:true});
+  bees.push({g,trail,n:hive.n.clone(),origin:hive.n.clone(),target:apeN.clone(),source:hive,life:20,travel:0,mode:'orbit',hit:false,armed:true});
 }
 function makeHiveZone(hive){
   const mat=new THREE.MeshBasicMaterial({color:0xffd44f,transparent:true,opacity:.28,side:THREE.DoubleSide,depthWrite:false}),ring=new THREE.Mesh(new THREE.RingGeometry(BEE_ATTACK_DISTANCE-.018,BEE_ATTACK_DISTANCE+.018,40),mat),g=new THREE.Group();
@@ -633,7 +648,7 @@ function updateShakeDynamics(dt,t){
         }}}}
   }
   mildShakeCharge=intensity>.0045?mildShakeCharge+dt:Math.max(0,mildShakeCharge-dt*.65);
-  if(mildShakeCharge>.24){mildShakeCharge=0;if(coconutCooldown<=0&&Math.random()<.72){const trees=props.filter(p=>p.kind==='tree'),palms=trees.filter(p=>p.style==='palm'),visiblePalms=palms.filter(p=>p.n.clone().applyQuaternion(world.quaternion).angleTo(CAMERA_CENTER_NORMAL)<.75),hostPool=visiblePalms.length?visiblePalms:palms,host=hostPool[Math.floor(Math.random()*hostPool.length)]||trees[Math.floor(Math.random()*trees.length)],roll=Math.random(),forceFirstCoconut=treeShakeDrops===0;treeShakeDrops++;if(host&&(forceFirstCoconut||roll<.64))dropCoconut(host);else if(health<3&&roll<.72)dropTreeReward(host,'heart');else if(roll<.84)dropTreeReward(host,'gem');else if(roll<.94)dropTreeReward(host,'coconutDrink');else dropTreeReward(host,'star');coconutCooldown=4+Math.random()*2.5;}}
+  if(mildShakeCharge>.24){mildShakeCharge=0;if(coconutCooldown<=0&&Math.random()<.72){const trees=props.filter(p=>p.kind==='tree'),palms=trees.filter(p=>p.style==='palm'),visiblePalms=palms.filter(p=>p.n.clone().applyQuaternion(world.quaternion).angleTo(CAMERA_CENTER_NORMAL)<.75),hostPool=visiblePalms.length?visiblePalms:palms,host=hostPool[Math.floor(Math.random()*hostPool.length)]||trees[Math.floor(Math.random()*trees.length)],roll=Math.random(),forceFirstCoconut=treeShakeDrops===0;treeShakeDrops++;if(host&&(forceFirstCoconut||roll<.64))dropCoconut(host);else if(lives<MAX_LIVES&&roll<.72)dropTreeReward(host,'heart');else if(roll<.84)dropTreeReward(host,'gem');else if(roll<.94)dropTreeReward(host,'coconutDrink');else dropTreeReward(host,'star');coconutCooldown=4+Math.random()*2.5;}}
   aggressiveShakeTime=intensity>.022?aggressiveShakeTime+dt:Math.max(0,aggressiveShakeTime-dt*.7);
   const warning=aggressiveShakeTime>.22;
   for(const h of treeHives){if(h.dropped)continue;h.cooldown=Math.max(0,h.cooldown-dt);const wobble=warning?Math.sin(t*17)*Math.min(.2,aggressiveShakeTime*.22):0;h.g.rotation.set(h.baseRotation.x,h.baseRotation.y,h.baseRotation.z+wobble);}
@@ -653,16 +668,30 @@ const MOVE_KEYS=['arrowleft','arrowright','arrowup','arrowdown','a','d','w','s']
 const KEY_TURN_SPEED=.0017;
 function keyboardVector(){let x=0,y=0;if(heldKeys.arrowleft||heldKeys.a)x+=1;if(heldKeys.arrowright||heldKeys.d)x-=1;if(heldKeys.arrowup||heldKeys.w)y+=1;if(heldKeys.arrowdown||heldKeys.s)y-=1;return{x,y};}
 
-function tripApe(obstacle=null){if(obstacle&&obstacleGrace>0)return;if(trip<=0){playCue('trip');trip=2.15;tripPhase='stumble';tripObstacle=obstacle;toast.textContent='OOF!';setTimeout(()=>toast.textContent='',700);}}
-function updateHealth(){healthEl.textContent='♥ '.repeat(Math.max(0,health)).trim()+' ♡'.repeat(Math.max(0,3-health));}
-function damageApe(){
-  if(knockedOut||hitTimer>0)return;health--;updateHealth();
-  playCue('hit');
-  if(health<=0){knockedOut=true;running=false;trip=0;runSpeed=0;tripPhase='knocked-out';toast.textContent='KNOCKED OUT!';
-    setTimeout(()=>{cardTitle.textContent='Game Over';cardText.textContent=`You caught ${score} banana${score===1?'':'s'}. Ready for another run?`;playButton.textContent='NEW GAME';start.hidden=false;},900);
-  }
-  else {hitTimer=.48;pendingDamageTrip=true;tripPhase='hit';toast.textContent='WHACK!';setTimeout(()=>{if(!knockedOut)toast.textContent='';},650);}
+function updateHUD(){
+  scoreEl.textContent=`⭐ ${score}/${levelGoal}`;levelEl.textContent=`LV ${level}`;
+  healthEl.textContent=`HP ${'●'.repeat(health)}${'○'.repeat(MAX_HEALTH-health)}`;livesEl.textContent=`♥ ×${lives}`;
+  Object.assign(document.documentElement.dataset,{score:String(score),level:String(level),levelGoal:String(levelGoal),health:String(health),lives:String(lives)});
 }
+function loseHealth(amount=1){
+  if(knockedOut)return 'blocked';health=Math.max(0,health-amount);
+  if(health>0){updateHUD();return 'hurt';}
+  lives=Math.max(0,lives-1);
+  if(lives<=0){updateHUD();knockedOut=true;running=false;trip=0;runSpeed=0;tripPhase='knocked-out';toast.textContent='KNOCKED OUT!';
+    setTimeout(()=>{cardTitle.textContent='Game Over';cardText.textContent=`Level ${level} · ${score} points. Ready for another run?`;playButton.textContent='NEW GAME';start.hidden=false;},900);return 'gameover';}
+  health=MAX_HEALTH;updateHUD();return 'life-lost';
+}
+function healHealth(amount=1){const before=health;health=Math.min(MAX_HEALTH,health+amount);updateHUD();return health-before;}
+function checkLevelClear(){
+  if(levelCleared||score<levelGoal)return;levelCleared=true;running=false;toast.textContent='LEVEL CLEARED!';playCue('catch');
+  setTimeout(()=>{cardTitle.textContent=`Level ${level} Cleared!`;cardText.textContent=`You reached ${score} points. Next goal: ${levelGoal+25}.`;playButton.textContent='NEXT LEVEL';start.hidden=false;},650);
+}
+function tripApe(obstacle=null,costsHealth=true){if(obstacle&&obstacleGrace>0)return;if(trip<=0){const result=costsHealth?loseHealth(1):'hurt';if(result==='gameover'||result==='blocked')return;playCue('trip');trip=2.15;tripPhase='stumble';tripObstacle=obstacle;toast.textContent=result==='life-lost'?'LOST A LIFE!':'OOF!';setTimeout(()=>{if(!knockedOut)toast.textContent='';},700);}}
+function damageApe(){
+  if(knockedOut||hitTimer>0)return;const result=loseHealth(1);if(result==='gameover'||result==='blocked')return;playCue('hit');
+  hitTimer=.48;pendingDamageTrip=true;tripPhase='hit';toast.textContent=result==='life-lost'?'LOST A LIFE!':'WHACK!';setTimeout(()=>{if(!knockedOut)toast.textContent='';},650);
+}
+updateHUD();
 function rockHitApe(){playCue('bonk');stunTimer=2;stunBirds.visible=true;damageApe();toast.textContent='BONK!';}
 function logHeadHitApe(){playCue('bonk');logDizzyTimer=2.15;dizzyStars.visible=true;tripApe();toast.textContent='KLONK!';setTimeout(()=>{if(!knockedOut)toast.textContent='';},700);}
 function propHitAngle(p){return (p.radius+.105)/R;}
@@ -693,7 +722,7 @@ function updateApe(dt,t){
   }
   if(hitTimer>0){
     hitTimer-=dt;runSpeed=0;apeModel.rotation.z=Math.sin(t*45)*.22;apeModel.rotation.x=-.18;apeModel.position.y=.035;head.rotation.z=stunTimer>0?-.34+Math.sin(t*8)*.09:Math.sin(t*38)*.18;limbs.armL.rotation.x=stunTimer>0?-.35:-1.65;limbs.armR.rotation.x=stunTimer>0?.48:-1.65;limbs.armL.lower.rotation.x=stunTimer>0?.72:0;limbs.armR.lower.rotation.x=stunTimer>0?.58:0;limbs.legL.rotation.x=stunTimer>0?.22:0;limbs.legR.rotation.x=stunTimer>0?-.18:0;
-    if(hitTimer<=0&&pendingDamageTrip){pendingDamageTrip=false;apeModel.rotation.z=0;tripApe();}
+    if(hitTimer<=0&&pendingDamageTrip){pendingDamageTrip=false;apeModel.rotation.z=0;tripApe(null,false);}
   }
   else if(startleTimer>0){
     startleTimer-=dt;runSpeed=Math.max(0,runSpeed-dt*1.8);apeModel.rotation.x=-.12;apeModel.rotation.z=Math.sin(t*28)*.08;head.rotation.z=Math.sin(t*22)*.12;limbs.armL.rotation.x=-1.25;limbs.armR.rotation.x=-1.25;
@@ -842,7 +871,7 @@ function frame(now){
       if(d.fallTrail){const attr=d.fallTrail.geometry.attributes.position,p=d.g.position;attr.setXYZ(0,p.x,p.y,p.z);attr.setXYZ(1,p.x+d.n.x*(.42+d.vy*.28),p.y+d.n.y*(.42+d.vy*.28),p.z+d.n.z*(.42+d.vy*.28));attr.needsUpdate=true;d.fallTrail.material.opacity=Math.min(.82,.36+d.vy*.28);}
       // Telegraph a grounded object's removal with a fast, readable blink.
       // Timing and collision behavior remain unchanged; only visibility pulses.
-      const flashStart=d.type==='hive'?9.2:1.35,willDisappear=['banana','coconut','coconutDrink','gem','star','heart','bomb','hive'].includes(d.type);
+      const flashStart=d.type==='hive'?19.2:['banana','coconut','coconutDrink','gem','star','heart'].includes(d.type)?3.35:1.35,willDisappear=['banana','coconut','coconutDrink','gem','star','heart','bomb','hive'].includes(d.type);
       d.g.visible=!d.landed||!willDisappear||d.groundTime<flashStart||Math.floor((d.groundTime-flashStart)*12)%2===0;
       const closeness=Math.max(0,1-d.h/2.15);
       // Keep drops proportional to the small ape: distant items are tiny, and
@@ -853,8 +882,17 @@ function frame(now){
       const apeCatchPoint=apeN.clone().multiplyScalar(R+.2);
       const apeHeadPoint=apeN.clone().multiplyScalar(R+.43);
       const goodDrop=['banana','coconut','coconutDrink','gem','star','heart'].includes(d.type);
-      if(goodDrop&&d.g.position.distanceTo(apeCatchPoint)<.22&&!(d.type==='heart'&&health>=3)){
-        finishAirDrop(d);playCue('catch');if(d.type==='heart'){health=Math.min(3,health+1);updateHealth();toast.textContent='+1 HEART';}else{const reward=d.type==='star'?10:d.type==='gem'?5:d.type==='coconutDrink'?3:d.type==='coconut'?2:1;score+=reward;scoreEl.textContent=`🍌 ${score}`;toast.textContent=d.type==='star'?'+10 GOLD STAR!':d.type==='gem'?'+5 GEM!':d.type==='coconutDrink'?'+3 COCONUT DRINK!':d.type==='coconut'?'+2 COCONUT!':'';}if(d.type!=='banana')setTimeout(()=>{if(!knockedOut)toast.textContent='';},650);world.remove(d.g);drops.splice(i,1);continue;
+      if(goodDrop&&d.g.position.distanceTo(apeCatchPoint)<.22&&!(d.type==='heart'&&lives>=MAX_LIVES)){
+        finishAirDrop(d);playCue('catch');
+        if(d.type==='heart'){
+          lives=Math.min(MAX_LIVES,lives+1);updateHUD();toast.textContent='+1 LIFE!';
+        }else{
+          const reward=d.type==='star'?10:d.type==='gem'?5:d.type==='coconutDrink'?3:d.type==='coconut'?2:1;
+          score+=reward;const foodHeal=d.type==='coconutDrink'?2:(d.type==='banana'||d.type==='coconut'?1:0),healed=foodHeal?healHealth(foodHeal):0;updateHUD();
+          toast.textContent=d.type==='star'?'+10 GOLD STAR!':d.type==='gem'?'+5 GEM!':d.type==='coconutDrink'?`+3 DRINK${healed?' · +2 HP':''}`:d.type==='coconut'?`+2 COCONUT${healed?' · +1 HP':''}`:`+1 BANANA${healed?' · +1 HP':''}`;
+          checkLevelClear();
+        }
+        setTimeout(()=>{if(!knockedOut&&!levelCleared)toast.textContent='';},650);world.remove(d.g);drops.splice(i,1);continue;
       }
       if(!d.landed&&d.type==='log'&&d.g.position.distanceTo(apeHeadPoint)<.2){logHeadHitApe();finishAirDrop(d);world.remove(d.g);drops.splice(i,1);continue;}
       if(!d.landed&&!goodDrop&&d.g.position.distanceTo(apeCatchPoint)<.19){
@@ -869,8 +907,8 @@ function frame(now){
       }
       if(d.landed&&d.type==='hive'&&!d.triggered)spawnBees(d);
       if(d.landed&&d.type==='bomb'&&d.groundTime>=2){explodeBomb(d);world.remove(d.g);drops.splice(i,1);continue;}
-      if(d.landed&&goodDrop&&d.groundTime>=2){world.remove(d.g);drops.splice(i,1);continue;}
-      if(d.landed&&d.type==='hive'&&d.groundTime>=10){world.remove(d.g);if(d.zoneRing)world.remove(d.zoneRing);drops.splice(i,1);continue;}
+      if(d.landed&&goodDrop&&d.groundTime>=4){document.documentElement.dataset.lastExpiredDrop=`${d.type}:${d.groundTime.toFixed(2)}`;world.remove(d.g);drops.splice(i,1);continue;}
+      if(d.landed&&d.type==='hive'&&d.groundTime>=20){world.remove(d.g);if(d.zoneRing)world.remove(d.zoneRing);drops.splice(i,1);continue;}
     }
     for(let i=bees.length-1;i>=0;i--){const b=bees[i];b.life-=dt;const falling=!b.source.landed,originGap=b.origin.angleTo(apeN),surfaceDistance=originGap*R,inZone=!falling&&surfaceDistance<=BEE_ATTACK_DISTANCE;if(!inZone)b.armed=true;
       if(falling){b.mode='orbit';b.travel=0;}
@@ -894,12 +932,13 @@ function frame(now){
 playButton.addEventListener('click',()=>{
   startAudio();
   if(knockedOut){sessionStorage.setItem('apeAutoStart','1');location.reload();return;}
+  if(levelCleared){level++;score=0;levelGoal=BASE_LEVEL_GOAL+(level-1)*25;levelCleared=false;cardTitle.textContent='BANANA';cardText.textContent='Spin the jungle. Catch the good stuff. Avoid everything else!';playButton.textContent='START GAME';updateHUD();toast.textContent='';}
   start.hidden=true;running=true;
 });
 let pausedByMenu=false;
 addEventListener('bp-pause',e=>{pausedByMenu=!!e.detail;if(pausedByMenu)running=false;else if(start.hidden&&!knockedOut)running=true;});
 if(sessionStorage.getItem('apeAutoStart')==='1'){sessionStorage.removeItem('apeAutoStart');start.hidden=true;running=true;}
-addEventListener('keydown',e=>{const k=e.key.toLowerCase(),qa=new URLSearchParams(location.search).has('qa');if(k==='r')location.reload();if(k==='k'&&qa)damageApe();if(k==='c'&&qa)qaCatchBanana();if(k==='h'&&qa)qaLandHive();if(k==='f'&&qa)qaFallHive();if(k==='j'&&qa)rockHitApe();if(k==='b'&&qa)logHeadHitApe();if(k==='t'&&qa)tripApe();if(k==='g'&&qa)rotateWorld(.065,.018,true);if(k==='l'&&qa)qaLandLog();if(k==='u'&&qa)qaCatchReward('gem');if(k==='y'&&qa)qaCatchReward('heart');if(k==='o'&&qa)qaCatchReward('coconutDrink');if(k==='x'&&qa)qaCatchReward('star');if(k==='p'&&qa)spawnDrop('rock');if(k==='q'&&qa)spawnCargoBurst();if(k==='w'&&qa)spawnDrop('banana');if(k==='z'&&qa){cameraZoom=.48;applyCameraZoom();}if(k==='v'&&qa){reversalCooldown=0;reversalFall=true;facing=1;tripApe();document.documentElement.dataset.shakeEvent='qa-reversal-fall';}if(MOVE_KEYS.includes(k))heldKeys[k]=true;});
+addEventListener('keydown',e=>{const k=e.key.toLowerCase(),qa=new URLSearchParams(location.search).has('qa');if(k==='r')location.reload();if(k==='k'&&qa)damageApe();if(k==='c'&&qa)qaCatchBanana();if(k==='m'&&qa)qaLandBanana();if(k==='n'&&qa)qaFinalLife();if(k==='h'&&qa)qaLandHive();if(k==='f'&&qa)qaFallHive();if(k==='j'&&qa)rockHitApe();if(k==='b'&&qa)logHeadHitApe();if(k==='t'&&qa)tripApe();if(k==='g'&&qa)rotateWorld(.065,.018,true);if(k==='l'&&qa)qaLandLog();if(k==='u'&&qa)qaCatchReward('gem');if(k==='y'&&qa)qaCatchReward('heart');if(k==='o'&&qa)qaCatchReward('coconutDrink');if(k==='x'&&qa)qaCatchReward('star');if(k==='p'&&qa)spawnDrop('rock');if(k==='q'&&qa)spawnCargoBurst();if(k==='w'&&qa)spawnDrop('banana');if(k==='z'&&qa){cameraZoom=.48;applyCameraZoom();}if(k==='v'&&qa){reversalCooldown=0;reversalFall=true;facing=1;tripApe();document.documentElement.dataset.shakeEvent='qa-reversal-fall';}if(MOVE_KEYS.includes(k))heldKeys[k]=true;});
 addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(MOVE_KEYS.includes(k))heldKeys[k]=false;});
 addEventListener('blur',()=>{for(const k of MOVE_KEYS)heldKeys[k]=false;});
 requestAnimationFrame(frame);

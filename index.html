@@ -11,7 +11,7 @@
   <main>
     <header>
       <div><span class="eyebrow">IPHONE PROTOTYPE</span><h1>Ape Globe Run</h1></div>
-      <div class="hud"><span id="debug">CENTER GAP 0°</span><span id="score">🍌 0</span><span id="best">🏆 0</span><span id="health">♥ ♥ ♥</span></div>
+      <div class="hud"><span id="debug">CENTER GAP 0°</span><span id="score">⭐ 0/50</span><span id="best">LV 1</span><span id="health">HP ●●●●●</span><span id="lives">♥ ×3</span></div>
     </header>
     <section class="game-shell">
       <canvas id="game" width="390" height="844" tabindex="0" aria-label="A cartoon ape running around a globe"></canvas>
@@ -74,6 +74,6 @@
   gameMusicVolume.addEventListener('input',()=>{const value=Number(gameMusicVolume.value),enabled=value>0;gameMusicVolumeValue.textContent=`${value}%`;gameMusic.setAttribute('aria-pressed',String(enabled));gameMusic.textContent=enabled?'ON':'OFF';gameMusic.classList.toggle('selected',enabled);window.dispatchEvent(new CustomEvent('bp-music-volume',{detail:value/100}));});
   syncGameAudio();
 </script>
-    <script defer src="./game.bundle.js?v=direct-thumb-run156"></script>
+    <script defer src="./game.bundle.js?v=larger-sparser-planet159"></script>
 </body>
 </html>

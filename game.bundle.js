@@ -28211,7 +28211,7 @@
       if (renderTarget.isWebGLCubeRenderTarget) {
         for (let i = 0; i < 6; i++) {
           if (Array.isArray(renderTargetProperties.__webglFramebuffer[i])) {
-            for (let level = 0; level < renderTargetProperties.__webglFramebuffer[i].length; level++) _gl.deleteFramebuffer(renderTargetProperties.__webglFramebuffer[i][level]);
+            for (let level2 = 0; level2 < renderTargetProperties.__webglFramebuffer[i].length; level2++) _gl.deleteFramebuffer(renderTargetProperties.__webglFramebuffer[i][level2]);
           } else {
             _gl.deleteFramebuffer(renderTargetProperties.__webglFramebuffer[i]);
           }
@@ -28219,7 +28219,7 @@
         }
       } else {
         if (Array.isArray(renderTargetProperties.__webglFramebuffer)) {
-          for (let level = 0; level < renderTargetProperties.__webglFramebuffer.length; level++) _gl.deleteFramebuffer(renderTargetProperties.__webglFramebuffer[level]);
+          for (let level2 = 0; level2 < renderTargetProperties.__webglFramebuffer.length; level2++) _gl.deleteFramebuffer(renderTargetProperties.__webglFramebuffer[level2]);
         } else {
           _gl.deleteFramebuffer(renderTargetProperties.__webglFramebuffer);
         }
@@ -28791,7 +28791,7 @@
       }
       textureProperties.__version = texture.version;
     }
-    function setupFrameBufferTexture(framebuffer, renderTarget, texture, attachment, textureTarget, level) {
+    function setupFrameBufferTexture(framebuffer, renderTarget, texture, attachment, textureTarget, level2) {
       const glFormat = utils.convert(texture.format, texture.colorSpace);
       const glType = utils.convert(texture.type);
       const glInternalFormat = getInternalFormat(texture.internalFormat, glFormat, glType, texture.colorSpace);
@@ -28799,19 +28799,19 @@
       const textureProperties = properties.get(texture);
       textureProperties.__renderTarget = renderTarget;
       if (!renderTargetProperties.__hasExternalTextures) {
-        const width = Math.max(1, renderTarget.width >> level);
-        const height = Math.max(1, renderTarget.height >> level);
+        const width = Math.max(1, renderTarget.width >> level2);
+        const height = Math.max(1, renderTarget.height >> level2);
         if (textureTarget === _gl.TEXTURE_3D || textureTarget === _gl.TEXTURE_2D_ARRAY) {
-          state.texImage3D(textureTarget, level, glInternalFormat, width, height, renderTarget.depth, 0, glFormat, glType, null);
+          state.texImage3D(textureTarget, level2, glInternalFormat, width, height, renderTarget.depth, 0, glFormat, glType, null);
         } else {
-          state.texImage2D(textureTarget, level, glInternalFormat, width, height, 0, glFormat, glType, null);
+          state.texImage2D(textureTarget, level2, glInternalFormat, width, height, 0, glFormat, glType, null);
         }
       }
       state.bindFramebuffer(_gl.FRAMEBUFFER, framebuffer);
       if (useMultisampledRTT(renderTarget)) {
         multisampledRTTExt.framebufferTexture2DMultisampleEXT(_gl.FRAMEBUFFER, attachment, textureTarget, textureProperties.__webglTexture, 0, getRenderTargetSamples(renderTarget));
       } else if (textureTarget === _gl.TEXTURE_2D || textureTarget >= _gl.TEXTURE_CUBE_MAP_POSITIVE_X && textureTarget <= _gl.TEXTURE_CUBE_MAP_NEGATIVE_Z) {
-        _gl.framebufferTexture2D(_gl.FRAMEBUFFER, attachment, textureTarget, textureProperties.__webglTexture, level);
+        _gl.framebufferTexture2D(_gl.FRAMEBUFFER, attachment, textureTarget, textureProperties.__webglTexture, level2);
       }
       state.bindFramebuffer(_gl.FRAMEBUFFER, null);
     }
@@ -28975,8 +28975,8 @@
         for (let i = 0; i < 6; i++) {
           if (texture.mipmaps && texture.mipmaps.length > 0) {
             renderTargetProperties.__webglFramebuffer[i] = [];
-            for (let level = 0; level < texture.mipmaps.length; level++) {
-              renderTargetProperties.__webglFramebuffer[i][level] = _gl.createFramebuffer();
+            for (let level2 = 0; level2 < texture.mipmaps.length; level2++) {
+              renderTargetProperties.__webglFramebuffer[i][level2] = _gl.createFramebuffer();
             }
           } else {
             renderTargetProperties.__webglFramebuffer[i] = _gl.createFramebuffer();
@@ -28985,8 +28985,8 @@
       } else {
         if (texture.mipmaps && texture.mipmaps.length > 0) {
           renderTargetProperties.__webglFramebuffer = [];
-          for (let level = 0; level < texture.mipmaps.length; level++) {
-            renderTargetProperties.__webglFramebuffer[level] = _gl.createFramebuffer();
+          for (let level2 = 0; level2 < texture.mipmaps.length; level2++) {
+            renderTargetProperties.__webglFramebuffer[level2] = _gl.createFramebuffer();
           }
         } else {
           renderTargetProperties.__webglFramebuffer = _gl.createFramebuffer();
@@ -29028,8 +29028,8 @@
         setTextureParameters(_gl.TEXTURE_CUBE_MAP, texture);
         for (let i = 0; i < 6; i++) {
           if (texture.mipmaps && texture.mipmaps.length > 0) {
-            for (let level = 0; level < texture.mipmaps.length; level++) {
-              setupFrameBufferTexture(renderTargetProperties.__webglFramebuffer[i][level], renderTarget, texture, _gl.COLOR_ATTACHMENT0, _gl.TEXTURE_CUBE_MAP_POSITIVE_X + i, level);
+            for (let level2 = 0; level2 < texture.mipmaps.length; level2++) {
+              setupFrameBufferTexture(renderTargetProperties.__webglFramebuffer[i][level2], renderTarget, texture, _gl.COLOR_ATTACHMENT0, _gl.TEXTURE_CUBE_MAP_POSITIVE_X + i, level2);
             }
           } else {
             setupFrameBufferTexture(renderTargetProperties.__webglFramebuffer[i], renderTarget, texture, _gl.COLOR_ATTACHMENT0, _gl.TEXTURE_CUBE_MAP_POSITIVE_X + i, 0);
@@ -29063,8 +29063,8 @@
         state.bindTexture(glTextureType, textureProperties.__webglTexture);
         setTextureParameters(glTextureType, texture);
         if (texture.mipmaps && texture.mipmaps.length > 0) {
-          for (let level = 0; level < texture.mipmaps.length; level++) {
-            setupFrameBufferTexture(renderTargetProperties.__webglFramebuffer[level], renderTarget, texture, _gl.COLOR_ATTACHMENT0, glTextureType, level);
+          for (let level2 = 0; level2 < texture.mipmaps.length; level2++) {
+            setupFrameBufferTexture(renderTargetProperties.__webglFramebuffer[level2], renderTarget, texture, _gl.COLOR_ATTACHMENT0, glTextureType, level2);
           }
         } else {
           setupFrameBufferTexture(renderTargetProperties.__webglFramebuffer, renderTarget, texture, _gl.COLOR_ATTACHMENT0, glTextureType, 0);
@@ -31752,14 +31752,14 @@ void main() {
           }
         }
       };
-      this.copyFramebufferToTexture = function(texture, position = null, level = 0) {
-        const levelScale = Math.pow(2, -level);
+      this.copyFramebufferToTexture = function(texture, position = null, level2 = 0) {
+        const levelScale = Math.pow(2, -level2);
         const width = Math.floor(texture.image.width * levelScale);
         const height = Math.floor(texture.image.height * levelScale);
         const x = position !== null ? position.x : 0;
         const y = position !== null ? position.y : 0;
         textures.setTexture2D(texture, 0);
-        _gl.copyTexSubImage2D(_gl.TEXTURE_2D, level, 0, 0, x, y, width, height);
+        _gl.copyTexSubImage2D(_gl.TEXTURE_2D, level2, 0, 0, x, y, width, height);
         state.unbindTexture();
       };
       const _srcFramebuffer = _gl.createFramebuffer();
@@ -31907,9 +31907,9 @@ void main() {
         }
         state.unbindTexture();
       };
-      this.copyTextureToTexture3D = function(srcTexture, dstTexture, srcRegion = null, dstPosition = null, level = 0) {
+      this.copyTextureToTexture3D = function(srcTexture, dstTexture, srcRegion = null, dstPosition = null, level2 = 0) {
         warnOnce('WebGLRenderer: copyTextureToTexture3D function has been deprecated. Use "copyTextureToTexture" instead.');
-        return this.copyTextureToTexture(srcTexture, dstTexture, srcRegion, dstPosition, level);
+        return this.copyTextureToTexture(srcTexture, dstTexture, srcRegion, dstPosition, level2);
       };
       this.initRenderTarget = function(target) {
         if (properties.get(target).__webglFramebuffer === void 0) {
@@ -34594,7 +34594,9 @@ void main() {
   var canvas = document.querySelector("#game");
   var start = document.querySelector("#start");
   var scoreEl = document.querySelector("#score");
+  var levelEl = document.querySelector("#best");
   var healthEl = document.querySelector("#health");
+  var livesEl = document.querySelector("#lives");
   var debugEl = document.querySelector("#debug");
   var toast = document.querySelector("#toast");
   var cardTitle = document.querySelector(".card h2");
@@ -34602,7 +34604,8 @@ void main() {
   var playButton = document.querySelector("#play");
   var W = 390;
   var H = 844;
-  var R = 10.5;
+  var PLANET_SCALE = 1.3;
+  var R = 10.5 * PLANET_SCALE;
   var audioCtx = null;
   var audioMaster = null;
   var musicMaster = null;
@@ -34882,8 +34885,8 @@ void main() {
   var scene = new Scene();
   scene.fog = new FogExp2(7909055, 0.019);
   var camera = new PerspectiveCamera(38, W / H, 0.1, 120);
-  camera.position.set(0, 0.55, 11.25);
-  var CAMERA_LOOK = new Vector3(0, 25, 0);
+  camera.position.set(0, 0.55 * PLANET_SCALE, 11.25 * PLANET_SCALE);
+  var CAMERA_LOOK = new Vector3(0, 25 * PLANET_SCALE, 0);
   camera.lookAt(CAMERA_LOOK);
   var CLOSE_CAMERA_POSITION = camera.position.clone();
   var cameraZoom = 0.14;
@@ -34898,7 +34901,7 @@ void main() {
   CAMERA_CENTER_NORMAL.applyAxisAngle(new Vector3(1, 0, 0), 0.025).normalize();
   var CAMERA_ZOOM_FOCUS = CAMERA_CENTER_NORMAL.clone().multiplyScalar(R);
   var CAMERA_ZOOM_DIRECTION = CLOSE_CAMERA_POSITION.clone().sub(CAMERA_ZOOM_FOCUS).normalize();
-  var OVERVIEW_CAMERA_POSITION = CAMERA_ZOOM_FOCUS.clone().addScaledVector(CAMERA_ZOOM_DIRECTION, 58);
+  var OVERVIEW_CAMERA_POSITION = CAMERA_ZOOM_FOCUS.clone().addScaledVector(CAMERA_ZOOM_DIRECTION, 58 * PLANET_SCALE);
   function applyCameraZoom() {
     const blend = MathUtils.smoothstep(cameraZoom, 0, 1);
     camera.position.lerpVectors(CLOSE_CAMERA_POSITION, OVERVIEW_CAMERA_POSITION, blend);
@@ -35047,7 +35050,7 @@ void main() {
   }
   function addLandedProp(entry) {
     entry.groundTime = 0;
-    entry.life = 6;
+    entry.life = 12;
     props.push(entry);
     landedProps.push(entry);
     if (landedProps.length > MAX_LANDED_PROPS) removeLandedProp(landedProps[0]);
@@ -35066,8 +35069,8 @@ void main() {
         p.group.quaternion.setFromRotationMatrix(basis);
         p.group.rotateX(p.rollAngle);
       }
-      p.group.visible = p.groundTime < 5.15 || Math.floor((p.groundTime - 5.15) * 12) % 2 === 0;
-      if (p.baseScale && p.groundTime > 5.15) p.group.scale.copy(p.baseScale).multiplyScalar(Math.max(0.05, 1 - (p.groundTime - 5.15) / 0.85));
+      p.group.visible = p.groundTime < 10.3 || Math.floor((p.groundTime - 10.3) * 12) % 2 === 0;
+      if (p.baseScale && p.groundTime > 10.3) p.group.scale.copy(p.baseScale).multiplyScalar(Math.max(0.05, 1 - (p.groundTime - 10.3) / 1.7));
       if (p.groundTime >= p.life) removeLandedProp(p);
     }
   }
@@ -35594,8 +35597,9 @@ void main() {
   function dirtPatch() {
     dirtPatchId++;
   }
-  for (let i = 0; i < 360; i++) {
-    const y = 1 - (i + 0.5) / 360 * 2, lat = Math.asin(y), lon = i * 2.399963;
+  var MAIN_WORLD_PROP_COUNT = 240;
+  for (let i = 0; i < MAIN_WORLD_PROP_COUNT; i++) {
+    const y = 1 - (i + 0.5) / MAIN_WORLD_PROP_COUNT * 2, lat = Math.asin(y), lon = i * 2.399963;
     const n = normalAt(lat, lon), k = i % 15;
     if (n.angleTo(CAMERA_CENTER_NORMAL) < 0.15) foliage(n, 0.55);
     else if (k === 0 || k === 7) {
@@ -35605,12 +35609,14 @@ void main() {
     else if (k === 5) log(n, 0.48 + i % 3 * 0.07);
     else foliage(n, 0.55 + i % 3 * 0.08);
   }
-  for (let i = 0; i < 48; i++) {
-    const y = 1 - (i + 0.5) / 48 * 2;
+  var EXTRA_PALM_COUNT = 32;
+  for (let i = 0; i < EXTRA_PALM_COUNT; i++) {
+    const y = 1 - (i + 0.5) / EXTRA_PALM_COUNT * 2;
     palm(normalAt(Math.asin(y), i * 2.399963 + 1.1), 0.62 + i % 5 * 0.055);
   }
-  for (let i = 0; i < 140; i++) {
-    const y = 1 - (i + 0.35) / 140 * 2, n = normalAt(Math.asin(y), i * 2.399963 + 0.73);
+  var GROUND_DRESSING_COUNT = 90;
+  for (let i = 0; i < GROUND_DRESSING_COUNT; i++) {
+    const y = 1 - (i + 0.35) / GROUND_DRESSING_COUNT * 2, n = normalAt(Math.asin(y), i * 2.399963 + 0.73);
     if (i % 17 === 0) flower(n, i % 34 ? 16745384 : 16762972, 0.5);
     else if (i % 11 === 0) dirtPatch(n, 0.55);
     else grassTuft(n, 0.38 + i % 4 * 0.05);
@@ -35639,6 +35645,10 @@ void main() {
   flower(midNormal(0.055, -0.13), 16744357, 0.75);
   flower(midNormal(0.095, 0.12), 16764770, 0.68);
   flower(midNormal(0.14, 0.045), 16747963, 0.6);
+  document.documentElement.dataset.planetRadius = R.toFixed(2);
+  document.documentElement.dataset.mainWorldProps = String(MAIN_WORLD_PROP_COUNT);
+  document.documentElement.dataset.extraPalms = String(EXTRA_PALM_COUNT);
+  document.documentElement.dataset.groundDressing = String(GROUND_DRESSING_COUNT);
   var detailStoneGeo = new DodecahedronGeometry(1, 0);
   var detailStones = new InstancedMesh(detailStoneGeo, rockMat, 14);
   var detailDummy = new Object3D();
@@ -35896,13 +35906,20 @@ void main() {
   }
   dizzyStars.visible = false;
   apeModel.add(dizzyStars);
+  var MAX_HEALTH = 5;
+  var MAX_LIVES = 3;
+  var BASE_LEVEL_GOAL = 50;
   var apeN = CAMERA_CENTER_NORMAL.clone();
   var targetN = apeN.clone();
   var runSpeed = 0;
   var gestureDrive = 0;
   var recognize = 0;
   var score = 0;
-  var health = 3;
+  var health = MAX_HEALTH;
+  var lives = MAX_LIVES;
+  var level = 1;
+  var levelGoal = BASE_LEVEL_GOAL;
+  var levelCleared = false;
   var running = false;
   var trip = 0;
   var tripPhase = "run";
@@ -36183,7 +36200,8 @@ void main() {
     }
   }
   installTreeHives();
-  var DROP_WEIGHTS = [["banana", 0.34], ["coconutDrink", 0.08], ["star", 0.045], ["gem", 0.065], ["heart", 0.05], ["rock", 0.15], ["log", 0.12], ["bomb", 0.09], ["hive", 0.06]];
+  var DROP_WEIGHTS = [["banana", 0.42], ["coconutDrink", 0.09], ["star", 0.05], ["gem", 0.09], ["heart", 0.05], ["rock", 0.11], ["log", 0.08], ["bomb", 0.06], ["hive", 0.05]];
+  document.documentElement.dataset.goodDropChance = "0.70";
   var SMALL_PLANE_MODEL_SCALE = 0.42;
   var CARGO_PLANE_MODEL_SCALE = 0.62;
   var SMALL_PLANE_ROUTE_HEIGHT = 4.2;
@@ -36577,6 +36595,16 @@ void main() {
     world.add(g);
     drops.push(drop);
   }
+  function qaLandBanana() {
+    const g = makeBanana(), drop = { type: "banana", n: offsetDropPoint(apeN, 0.2), g, h: 0.015, vy: 0, landed: true, groundTime: 0, triggered: false };
+    world.add(g);
+    drops.push(drop);
+  }
+  function qaFinalLife() {
+    health = 1;
+    lives = 1;
+    updateHUD();
+  }
   function qaLandLog() {
     const g = makeFallingLog(), drop = { type: "log", n: offsetDropPoint(apeN, 0.055), g, h: 0.015, vy: 0, landed: true, groundTime: 0, triggered: false };
     world.add(g);
@@ -36615,7 +36643,7 @@ void main() {
     const trailMat = new LineBasicMaterial({ color: 16767053, transparent: true, opacity: 0 }), trail = new Line(new BufferGeometry().setFromPoints([g.position.clone(), g.position.clone()]), trailMat);
     trail.visible = false;
     world.add(trail);
-    bees.push({ g, trail, n: hive.n.clone(), origin: hive.n.clone(), target: apeN.clone(), source: hive, life: 10, travel: 0, mode: "orbit", hit: false, armed: true });
+    bees.push({ g, trail, n: hive.n.clone(), origin: hive.n.clone(), target: apeN.clone(), source: hive, life: 20, travel: 0, mode: "orbit", hit: false, armed: true });
   }
   function makeHiveZone(hive) {
     const mat = new MeshBasicMaterial({ color: 16766031, transparent: true, opacity: 0.28, side: DoubleSide, depthWrite: false }), ring = new Mesh(new RingGeometry(BEE_ATTACK_DISTANCE - 0.018, BEE_ATTACK_DISTANCE + 0.018, 40), mat), g = new Group();
@@ -36715,7 +36743,7 @@ void main() {
         const trees = props.filter((p) => p.kind === "tree"), palms = trees.filter((p) => p.style === "palm"), visiblePalms = palms.filter((p) => p.n.clone().applyQuaternion(world.quaternion).angleTo(CAMERA_CENTER_NORMAL) < 0.75), hostPool = visiblePalms.length ? visiblePalms : palms, host = hostPool[Math.floor(Math.random() * hostPool.length)] || trees[Math.floor(Math.random() * trees.length)], roll = Math.random(), forceFirstCoconut = treeShakeDrops === 0;
         treeShakeDrops++;
         if (host && (forceFirstCoconut || roll < 0.64)) dropCoconut(host);
-        else if (health < 3 && roll < 0.72) dropTreeReward(host, "heart");
+        else if (lives < MAX_LIVES && roll < 0.72) dropTreeReward(host, "heart");
         else if (roll < 0.84) dropTreeReward(host, "gem");
         else if (roll < 0.94) dropTreeReward(host, "coconutDrink");
         else dropTreeReward(host, "star");
@@ -36807,26 +36835,23 @@ void main() {
     if (heldKeys.arrowdown || heldKeys.s) y -= 1;
     return { x, y };
   }
-  function tripApe(obstacle = null) {
-    if (obstacle && obstacleGrace > 0) return;
-    if (trip <= 0) {
-      playCue("trip");
-      trip = 2.15;
-      tripPhase = "stumble";
-      tripObstacle = obstacle;
-      toast.textContent = "OOF!";
-      setTimeout(() => toast.textContent = "", 700);
+  function updateHUD() {
+    scoreEl.textContent = `\u2B50 ${score}/${levelGoal}`;
+    levelEl.textContent = `LV ${level}`;
+    healthEl.textContent = `HP ${"\u25CF".repeat(health)}${"\u25CB".repeat(MAX_HEALTH - health)}`;
+    livesEl.textContent = `\u2665 \xD7${lives}`;
+    Object.assign(document.documentElement.dataset, { score: String(score), level: String(level), levelGoal: String(levelGoal), health: String(health), lives: String(lives) });
+  }
+  function loseHealth(amount = 1) {
+    if (knockedOut) return "blocked";
+    health = Math.max(0, health - amount);
+    if (health > 0) {
+      updateHUD();
+      return "hurt";
     }
-  }
-  function updateHealth() {
-    healthEl.textContent = "\u2665 ".repeat(Math.max(0, health)).trim() + " \u2661".repeat(Math.max(0, 3 - health));
-  }
-  function damageApe() {
-    if (knockedOut || hitTimer > 0) return;
-    health--;
-    updateHealth();
-    playCue("hit");
-    if (health <= 0) {
+    lives = Math.max(0, lives - 1);
+    if (lives <= 0) {
+      updateHUD();
       knockedOut = true;
       running = false;
       trip = 0;
@@ -36835,20 +36860,64 @@ void main() {
       toast.textContent = "KNOCKED OUT!";
       setTimeout(() => {
         cardTitle.textContent = "Game Over";
-        cardText.textContent = `You caught ${score} banana${score === 1 ? "" : "s"}. Ready for another run?`;
+        cardText.textContent = `Level ${level} \xB7 ${score} points. Ready for another run?`;
         playButton.textContent = "NEW GAME";
         start.hidden = false;
       }, 900);
-    } else {
-      hitTimer = 0.48;
-      pendingDamageTrip = true;
-      tripPhase = "hit";
-      toast.textContent = "WHACK!";
+      return "gameover";
+    }
+    health = MAX_HEALTH;
+    updateHUD();
+    return "life-lost";
+  }
+  function healHealth(amount = 1) {
+    const before = health;
+    health = Math.min(MAX_HEALTH, health + amount);
+    updateHUD();
+    return health - before;
+  }
+  function checkLevelClear() {
+    if (levelCleared || score < levelGoal) return;
+    levelCleared = true;
+    running = false;
+    toast.textContent = "LEVEL CLEARED!";
+    playCue("catch");
+    setTimeout(() => {
+      cardTitle.textContent = `Level ${level} Cleared!`;
+      cardText.textContent = `You reached ${score} points. Next goal: ${levelGoal + 25}.`;
+      playButton.textContent = "NEXT LEVEL";
+      start.hidden = false;
+    }, 650);
+  }
+  function tripApe(obstacle = null, costsHealth = true) {
+    if (obstacle && obstacleGrace > 0) return;
+    if (trip <= 0) {
+      const result = costsHealth ? loseHealth(1) : "hurt";
+      if (result === "gameover" || result === "blocked") return;
+      playCue("trip");
+      trip = 2.15;
+      tripPhase = "stumble";
+      tripObstacle = obstacle;
+      toast.textContent = result === "life-lost" ? "LOST A LIFE!" : "OOF!";
       setTimeout(() => {
         if (!knockedOut) toast.textContent = "";
-      }, 650);
+      }, 700);
     }
   }
+  function damageApe() {
+    if (knockedOut || hitTimer > 0) return;
+    const result = loseHealth(1);
+    if (result === "gameover" || result === "blocked") return;
+    playCue("hit");
+    hitTimer = 0.48;
+    pendingDamageTrip = true;
+    tripPhase = "hit";
+    toast.textContent = result === "life-lost" ? "LOST A LIFE!" : "WHACK!";
+    setTimeout(() => {
+      if (!knockedOut) toast.textContent = "";
+    }, 650);
+  }
+  updateHUD();
   function rockHitApe() {
     playCue("bonk");
     stunTimer = 2;
@@ -36953,7 +37022,7 @@ void main() {
       if (hitTimer <= 0 && pendingDamageTrip) {
         pendingDamageTrip = false;
         apeModel.rotation.z = 0;
-        tripApe();
+        tripApe(null, false);
       }
     } else if (startleTimer > 0) {
       startleTimer -= dt;
@@ -37429,28 +37498,30 @@ void main() {
           attr.needsUpdate = true;
           d.fallTrail.material.opacity = Math.min(0.82, 0.36 + d.vy * 0.28);
         }
-        const flashStart = d.type === "hive" ? 9.2 : 1.35, willDisappear = ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "bomb", "hive"].includes(d.type);
+        const flashStart = d.type === "hive" ? 19.2 : ["banana", "coconut", "coconutDrink", "gem", "star", "heart"].includes(d.type) ? 3.35 : 1.35, willDisappear = ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "bomb", "hive"].includes(d.type);
         d.g.visible = !d.landed || !willDisappear || d.groundTime < flashStart || Math.floor((d.groundTime - flashStart) * 12) % 2 === 0;
         const closeness = Math.max(0, 1 - d.h / 2.15);
         d.g.scale.setScalar((0.2 + closeness * 0.22) * (d.type === "hive" ? 1.55 : 1));
         const apeCatchPoint = apeN.clone().multiplyScalar(R + 0.2);
         const apeHeadPoint = apeN.clone().multiplyScalar(R + 0.43);
         const goodDrop = ["banana", "coconut", "coconutDrink", "gem", "star", "heart"].includes(d.type);
-        if (goodDrop && d.g.position.distanceTo(apeCatchPoint) < 0.22 && !(d.type === "heart" && health >= 3)) {
+        if (goodDrop && d.g.position.distanceTo(apeCatchPoint) < 0.22 && !(d.type === "heart" && lives >= MAX_LIVES)) {
           finishAirDrop(d);
           playCue("catch");
           if (d.type === "heart") {
-            health = Math.min(3, health + 1);
-            updateHealth();
-            toast.textContent = "+1 HEART";
+            lives = Math.min(MAX_LIVES, lives + 1);
+            updateHUD();
+            toast.textContent = "+1 LIFE!";
           } else {
             const reward = d.type === "star" ? 10 : d.type === "gem" ? 5 : d.type === "coconutDrink" ? 3 : d.type === "coconut" ? 2 : 1;
             score += reward;
-            scoreEl.textContent = `\u{1F34C} ${score}`;
-            toast.textContent = d.type === "star" ? "+10 GOLD STAR!" : d.type === "gem" ? "+5 GEM!" : d.type === "coconutDrink" ? "+3 COCONUT DRINK!" : d.type === "coconut" ? "+2 COCONUT!" : "";
+            const foodHeal = d.type === "coconutDrink" ? 2 : d.type === "banana" || d.type === "coconut" ? 1 : 0, healed = foodHeal ? healHealth(foodHeal) : 0;
+            updateHUD();
+            toast.textContent = d.type === "star" ? "+10 GOLD STAR!" : d.type === "gem" ? "+5 GEM!" : d.type === "coconutDrink" ? `+3 DRINK${healed ? " \xB7 +2 HP" : ""}` : d.type === "coconut" ? `+2 COCONUT${healed ? " \xB7 +1 HP" : ""}` : `+1 BANANA${healed ? " \xB7 +1 HP" : ""}`;
+            checkLevelClear();
           }
-          if (d.type !== "banana") setTimeout(() => {
-            if (!knockedOut) toast.textContent = "";
+          setTimeout(() => {
+            if (!knockedOut && !levelCleared) toast.textContent = "";
           }, 650);
           world.remove(d.g);
           drops.splice(i, 1);
@@ -37492,12 +37563,13 @@ void main() {
           drops.splice(i, 1);
           continue;
         }
-        if (d.landed && goodDrop && d.groundTime >= 2) {
+        if (d.landed && goodDrop && d.groundTime >= 4) {
+          document.documentElement.dataset.lastExpiredDrop = `${d.type}:${d.groundTime.toFixed(2)}`;
           world.remove(d.g);
           drops.splice(i, 1);
           continue;
         }
-        if (d.landed && d.type === "hive" && d.groundTime >= 10) {
+        if (d.landed && d.type === "hive" && d.groundTime >= 20) {
           world.remove(d.g);
           if (d.zoneRing) world.remove(d.zoneRing);
           drops.splice(i, 1);
@@ -37588,6 +37660,17 @@ void main() {
       location.reload();
       return;
     }
+    if (levelCleared) {
+      level++;
+      score = 0;
+      levelGoal = BASE_LEVEL_GOAL + (level - 1) * 25;
+      levelCleared = false;
+      cardTitle.textContent = "BANANA";
+      cardText.textContent = "Spin the jungle. Catch the good stuff. Avoid everything else!";
+      playButton.textContent = "START GAME";
+      updateHUD();
+      toast.textContent = "";
+    }
     start.hidden = true;
     running = true;
   });
@@ -37607,6 +37690,8 @@ void main() {
     if (k === "r") location.reload();
     if (k === "k" && qa) damageApe();
     if (k === "c" && qa) qaCatchBanana();
+    if (k === "m" && qa) qaLandBanana();
+    if (k === "n" && qa) qaFinalLife();
     if (k === "h" && qa) qaLandHive();
     if (k === "f" && qa) qaFallHive();
     if (k === "j" && qa) rockHitApe();
