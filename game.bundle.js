@@ -36600,16 +36600,20 @@ void main() {
   function dropTreeHive(entry) {
     const worldPos = new Vector3();
     entry.g.getWorldPosition(worldPos);
+    const sideSign = Math.sign(entry.g.position.x) || 1, sideTangent = new Vector3().crossVectors(UP, entry.tree.n);
+    if (sideTangent.lengthSq() < 1e-3) sideTangent.set(1, 0, 0);
+    sideTangent.normalize().multiplyScalar(sideSign);
+    const landingN = entry.tree.n.clone().addScaledVector(sideTangent, 0.055).normalize();
     entry.tree.group.remove(entry.g);
     entry.g.position.set(0, 0, 0);
     entry.g.rotation.set(0, 0, 0);
     entry.g.scale.setScalar(1);
-    const drop = { type: "hive", n: entry.tree.n.clone(), g: entry.g, h: 0.8, vy: 0.2, landed: false, groundTime: 0, triggered: false };
+    const drop = { type: "hive", n: landingN, g: entry.g, h: 0.8, vy: 0.2, landed: false, groundTime: 0, triggered: false };
     world.add(entry.g);
     drops.push(drop);
     spawnBees(drop);
     entry.dropped = true;
-    document.documentElement.dataset.treeDrop = "hive";
+    document.documentElement.dataset.treeDrop = "hive-side";
     playCue("fall");
   }
   function offsetDropPoint(base, maxAngle) {

@@ -578,8 +578,9 @@ function makeStar(){const shape=new THREE.Shape();for(let i=0;i<10;i++){const a=
 function makeDropModel(type){return type==='banana'?makeBanana():type==='coconutDrink'?makeCoconutDrink():type==='star'?makeStar():type==='gem'?makeGem():type==='heart'?makeHeart():type==='helmet'?makeHelmet():type==='bomb'?makeBomb():type==='rock'?makeFallingRock():type==='log'?makeFallingLog():makeHive();}
 function dropTreeReward(tree,type){const g=type==='heart'?makeHeart():type==='coconutDrink'?makeCoconutDrink():type==='star'?makeStar():makeGem(),n=offsetDropPoint(tree.n,.018),drop={type,n,g,h:.78,vy:.14,landed:false,groundTime:0,triggered:false};world.add(g);drops.push(drop);document.documentElement.dataset.treeDrop=type;playCue('fall');}
 function dropTreeHive(entry){
-  const worldPos=new THREE.Vector3();entry.g.getWorldPosition(worldPos);entry.tree.group.remove(entry.g);entry.g.position.set(0,0,0);entry.g.rotation.set(0,0,0);entry.g.scale.setScalar(1);
-  const drop={type:'hive',n:entry.tree.n.clone(),g:entry.g,h:.8,vy:.2,landed:false,groundTime:0,triggered:false};world.add(entry.g);drops.push(drop);spawnBees(drop);entry.dropped=true;document.documentElement.dataset.treeDrop='hive';playCue('fall');
+  const worldPos=new THREE.Vector3();entry.g.getWorldPosition(worldPos);const sideSign=Math.sign(entry.g.position.x)||1,sideTangent=new THREE.Vector3().crossVectors(UP,entry.tree.n);if(sideTangent.lengthSq()<.001)sideTangent.set(1,0,0);sideTangent.normalize().multiplyScalar(sideSign);
+  const landingN=entry.tree.n.clone().addScaledVector(sideTangent,.055).normalize();entry.tree.group.remove(entry.g);entry.g.position.set(0,0,0);entry.g.rotation.set(0,0,0);entry.g.scale.setScalar(1);
+  const drop={type:'hive',n:landingN,g:entry.g,h:.8,vy:.2,landed:false,groundTime:0,triggered:false};world.add(entry.g);drops.push(drop);spawnBees(drop);entry.dropped=true;document.documentElement.dataset.treeDrop='hive-side';playCue('fall');
 }
 function offsetDropPoint(base,maxAngle){
   const axis=new THREE.Vector3().crossVectors(base,Math.abs(base.y)>.9?new THREE.Vector3(1,0,0):UP).normalize().applyAxisAngle(base,Math.random()*Math.PI*2);
