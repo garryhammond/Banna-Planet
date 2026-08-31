@@ -46,7 +46,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.18;
+renderer.toneMappingExposure = 1.38;
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x78aebf, .019);
@@ -92,15 +92,15 @@ function resizeGame(){
 }
 resizeGame();addEventListener('resize',resizeGame);
 
-scene.add(new THREE.HemisphereLight(0xb9dcff,0x173412,1.35));
-const sun = new THREE.DirectionalLight(0xffd08a,3.7);
+scene.add(new THREE.HemisphereLight(0xcfe8ff,0x315c25,1.85));
+const sun = new THREE.DirectionalLight(0xffd79a,4.25);
 sun.position.set(-5,8,9); sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048); sun.shadow.camera.left=-20; sun.shadow.camera.right=20;
 sun.shadow.camera.top=20; sun.shadow.camera.bottom=-20;sun.shadow.bias=-.00015;sun.shadow.normalBias=.035; scene.add(sun);
 const rim = new THREE.DirectionalLight(0x72bfff,1.55); rim.position.set(7,3,-6); scene.add(rim);
 // A soft camera-side key keeps the hero and foreground props readable instead
 // of becoming silhouettes against the bright storybook sky.
-const heroKey = new THREE.DirectionalLight(0xffd2a0,3.25); heroKey.position.set(-1.5,4.5,10); scene.add(heroKey);
+const heroKey = new THREE.DirectionalLight(0xffdfb8,3.75); heroKey.position.set(-1.5,4.5,10); scene.add(heroKey);
 const faceFill = new THREE.PointLight(0xffe4c4,13,34,1.8); faceFill.position.set(0,3,9); scene.add(faceFill);
 
 const world = new THREE.Group(); scene.add(world);

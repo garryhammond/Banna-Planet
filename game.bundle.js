@@ -34882,7 +34882,7 @@ void main() {
   renderer.shadowMap.type = PCFSoftShadowMap;
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.18;
+  renderer.toneMappingExposure = 1.38;
   var scene = new Scene();
   scene.fog = new FogExp2(7909055, 0.019);
   var camera = new PerspectiveCamera(38, W / H, 0.1, 120);
@@ -34928,8 +34928,8 @@ void main() {
   }
   resizeGame();
   addEventListener("resize", resizeGame);
-  scene.add(new HemisphereLight(12180735, 1520658, 1.35));
-  var sun = new DirectionalLight(16765066, 3.7);
+  scene.add(new HemisphereLight(13625599, 3234853, 1.85));
+  var sun = new DirectionalLight(16766874, 4.25);
   sun.position.set(-5, 8, 9);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -34943,7 +34943,7 @@ void main() {
   var rim = new DirectionalLight(7520255, 1.55);
   rim.position.set(7, 3, -6);
   scene.add(rim);
-  var heroKey = new DirectionalLight(16765600, 3.25);
+  var heroKey = new DirectionalLight(16768952, 3.75);
   heroKey.position.set(-1.5, 4.5, 10);
   scene.add(heroKey);
   var faceFill = new PointLight(16770244, 13, 34, 1.8);
