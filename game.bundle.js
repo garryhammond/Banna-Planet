@@ -34747,6 +34747,10 @@ void main() {
     } else if (name === "fall") {
       noise(0.32, 0.035, 1500);
       tone(360, 0.28, "sine", 0.045, 0.48);
+    } else if (name === "whoa") {
+      tone(430, 0.55, "sawtooth", 0.1, 0.32);
+      setTimeout(() => tone(315, 0.38, "triangle", 0.055, 0.48), 170);
+      setTimeout(() => tone(225, 0.28, "triangle", 0.032, 0.55), 350);
     } else if (name === "land") {
       noise(0.11, 0.085, 650);
       tone(105, 0.12, "triangle", 0.12, 0.72);
@@ -35627,34 +35631,43 @@ void main() {
   }
   function groundHole(n, s = 1) {
     const g = new Group(), pitMat = new MeshBasicMaterial({ color: 525828, side: DoubleSide }), soilMat = new MeshStandardMaterial({ color: 6961950, roughness: 1 });
-    const pitShape = new Shape();
-    for (let i = 0; i < 18; i++) {
-      const a = i / 18 * Math.PI * 2, r = 0.39 * (0.88 + 0.13 * Math.sin(i * 4.7) + 0.07 * Math.cos(i * 7.3)), x = Math.cos(a) * r, z = Math.sin(a) * r;
-      i ? pitShape.lineTo(x, z) : pitShape.moveTo(x, z);
-    }
-    pitShape.closePath();
-    const pit = new Mesh(new ShapeGeometry(pitShape), pitMat);
+    const pit = new Mesh(new CircleGeometry(0.43, 36), pitMat);
     pit.rotation.x = -Math.PI / 2;
-    pit.position.y = 3e-3;
+    pit.position.y = 0.032;
+    pit.scale.z = 0.72;
+    pit.renderOrder = 3;
     g.add(pit);
-    for (let i = 0; i < 13; i++) {
-      const a = i / 13 * Math.PI * 2 + 0.12 * Math.sin(i * 2.1), r = 0.38 + i % 3 * 0.012, clod = new Mesh(new DodecahedronGeometry(0.055 + i % 4 * 0.012, 0), i % 4 === 0 ? rockMat : soilMat);
-      clod.position.set(Math.cos(a) * r, 0.018 + i % 2 * 0.012, Math.sin(a) * r);
-      clod.scale.set(1.3, 0.55, 0.85);
-      clod.rotation.y = -a + i * 0.37;
+    const innerWall = new Mesh(new TorusGeometry(0.425, 0.052, 8, 36), new MeshStandardMaterial({ color: 3809556, roughness: 1 }));
+    innerWall.rotation.x = Math.PI / 2;
+    innerWall.position.y = 0.038;
+    innerWall.scale.z = 0.72;
+    innerWall.castShadow = true;
+    g.add(innerWall);
+    for (let i = 0; i < 7; i++) {
+      const a = [0.18, 0.76, 1.58, 2.4, 3.2, 4.25, 5.4][i], r = 0.43, clod = new Mesh(new DodecahedronGeometry(0.045 + i % 3 * 9e-3, 0), i === 2 || i === 5 ? rockMat : soilMat);
+      clod.position.set(Math.cos(a) * r, 0.052, Math.sin(a) * r * 0.72);
+      clod.scale.set(1.25, 0.48, 0.78);
+      clod.rotation.y = -a + i * 0.29;
       clod.castShadow = true;
       g.add(clod);
     }
-    for (const a of [0.28, 2.55, 4.72]) {
-      const root = new Mesh(new CylinderGeometry(0.018, 0.028, 0.34, 7), new MeshStandardMaterial({ color: 5911067, roughness: 1 }));
+    const rootMat = new MeshStandardMaterial({ color: 5320732, roughness: 1 });
+    for (const a of [0.34, 3.62]) {
+      const root = new Mesh(new CylinderGeometry(0.018, 0.028, 0.38, 7), rootMat);
       root.rotation.z = Math.PI / 2;
       root.rotation.y = -a;
-      root.position.set(Math.cos(a) * 0.32, 0.035, Math.sin(a) * 0.32);
+      root.position.set(Math.cos(a) * 0.34, 0.058, Math.sin(a) * 0.25);
       g.add(root);
+    }
+    for (let i = props.length - 1; i >= 0; i--) {
+      if (n.angleTo(props[i].n) < 0.065) {
+        world.remove(props[i].group);
+        props.splice(i, 1);
+      }
     }
     g.scale.setScalar(s);
     plant(g, n, 2e-3);
-    props.push({ kind: "hole", n: n.clone(), radius: 0.34 * s, group: g });
+    props.push({ kind: "hole", n: n.clone(), radius: 0.36 * s, group: g });
   }
   for (let i = 0; i < 5; i++) groundHole(normalAt(-0.42 + i * 0.21, 1.05 + i * 1.17), 0.88 + i % 2 * 0.12);
   var midX = new Vector3(1, 0, 0);
@@ -35980,6 +35993,8 @@ void main() {
   var angryStompPlayed = false;
   var holeFallTimer = 0;
   var holeRespawnPoint = null;
+  var holeFallCenter = null;
+  var holeGameOverPending = false;
   var tripObstacle = null;
   var obstacleGrace = 0;
   var avoidObstacle = null;
@@ -36987,30 +37002,21 @@ void main() {
   }
   function fallInHole(hole) {
     if (knockedOut || holeFallTimer > 0) return;
-    playCue("trip");
+    playCue("whoa");
     lives = Math.max(0, lives - 1);
     updateHUD();
     runSpeed = 0;
     trip = 0;
     tripPhase = "hole-fall";
-    if (lives <= 0) {
-      knockedOut = true;
-      running = false;
-      toast.textContent = "GAME OVER!";
-      setTimeout(() => {
-        cardTitle.textContent = "Game Over";
-        cardText.textContent = `Level ${level} \xB7 ${score} points. Ready for another run?`;
-        playButton.textContent = "NEW GAME";
-        start.hidden = false;
-      }, 900);
-      return;
-    }
+    holeFallCenter = hole.n.clone();
+    apeN.copy(holeFallCenter);
+    holeGameOverPending = lives <= 0;
     const respawnAxis = new Vector3().crossVectors(targetN, UP);
     if (respawnAxis.lengthSq() < 1e-3) respawnAxis.set(1, 0, 0);
     respawnAxis.normalize();
-    holeFallTimer = 1.2;
+    holeFallTimer = 1.4;
     holeRespawnPoint = clearRecoveryPoint(targetN.clone().applyAxisAngle(respawnAxis, 0.08), targetN);
-    toast.textContent = "FELL IN A HOLE!";
+    toast.textContent = "WHOA-A-A!";
     document.documentElement.dataset.lastHazard = "hole";
   }
   updateHUD();
@@ -37118,23 +37124,43 @@ void main() {
     }
     if (holeFallTimer > 0) {
       holeFallTimer -= dt;
-      const p = MathUtils.clamp(holeFallTimer / 1.2, 0, 1);
-      apeModel.scale.setScalar(0.7 * Math.max(0.05, p));
-      apeModel.position.y = -(1 - p) * 0.25;
-      apeModel.rotation.y += dt * 5;
+      const p = MathUtils.clamp(holeFallTimer / 1.4, 0, 1);
+      if (holeFallCenter) apeN.lerp(holeFallCenter, 0.24).normalize();
+      apeModel.scale.setScalar(0.7 * (0.9 + 0.1 * p));
+      apeModel.position.y = -(1 - p) * 1.05;
+      apeModel.rotation.y += dt * (4 + 3 * (1 - p));
+      apeModel.rotation.z = Math.sin(t * 15) * 0.12;
+      head.rotation.x = -0.18;
+      limbs.armL.rotation.x = -1.75 + Math.sin(t * 18) * 0.18;
+      limbs.armR.rotation.x = -1.75 - Math.sin(t * 18) * 0.18;
+      limbs.legL.rotation.x = 0.45 + Math.sin(t * 22) * 0.28;
+      limbs.legR.rotation.x = 0.45 - Math.sin(t * 22) * 0.28;
       placeApe();
       if (holeFallTimer <= 0) {
-        apeN.copy(holeRespawnPoint || targetN);
-        apeModel.scale.setScalar(0.7);
-        apeModel.position.y = 0;
-        apeModel.rotation.set(0, 0, 0);
-        holeRespawnPoint = null;
-        tripPhase = "run";
-        obstacleGrace = 1;
-        toast.textContent = "BACK IN THE RUN!";
-        setTimeout(() => {
-          if (!knockedOut) toast.textContent = "";
-        }, 700);
+        if (holeGameOverPending) {
+          knockedOut = true;
+          running = false;
+          toast.textContent = "GAME OVER!";
+          setTimeout(() => {
+            cardTitle.textContent = "Game Over";
+            cardText.textContent = `Level ${level} \xB7 ${score} points. Ready for another run?`;
+            playButton.textContent = "NEW GAME";
+            start.hidden = false;
+          }, 500);
+        } else {
+          apeN.copy(holeRespawnPoint || targetN);
+          apeModel.scale.setScalar(0.7);
+          apeModel.position.y = 0;
+          apeModel.rotation.set(0, 0, 0);
+          holeRespawnPoint = null;
+          holeFallCenter = null;
+          tripPhase = "run";
+          obstacleGrace = 1;
+          toast.textContent = "BACK IN THE RUN!";
+          setTimeout(() => {
+            if (!knockedOut) toast.textContent = "";
+          }, 700);
+        }
       }
       return;
     }
@@ -37869,6 +37895,7 @@ void main() {
     if (k === "d" && qa) {
       const hole = props.find((p) => p.kind === "hole");
       if (hole) {
+        world.quaternion.setFromUnitVectors(hole.n, CAMERA_CENTER_NORMAL);
         apeN.copy(hole.n);
         fallInHole(hole);
       }
