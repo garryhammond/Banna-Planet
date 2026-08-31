@@ -35054,7 +35054,7 @@ void main() {
   }
   function addLandedProp(entry) {
     entry.groundTime = 0;
-    entry.life = 12;
+    entry.life = 24;
     props.push(entry);
     landedProps.push(entry);
     if (landedProps.length > MAX_LANDED_PROPS) removeLandedProp(landedProps[0]);
@@ -37476,9 +37476,10 @@ void main() {
       blast.add(spark);
       sparks.push(spark);
     }
-    const light = new PointLight(16742952, 4.5, 2.3, 2);
+    const light = new PointLight(16742952, 5.2, 4.6, 2);
     light.position.y = 0.22;
     blast.add(light);
+    blast.scale.setScalar(2);
     world.add(blast);
     effects.push({ g: blast, life: 0.9, maxLife: 0.9, update(dt, e) {
       const age = e.maxLife - e.life, p = Math.min(1, age / e.maxLife);
@@ -37501,6 +37502,8 @@ void main() {
       }
     } });
     const blastGap = apeN.angleTo(d.n);
+    document.documentElement.dataset.bombDamageRadius = ".09";
+    document.documentElement.dataset.bombStartleRadius = ".18";
     if (blastGap < 0.09) damageApe();
     else if (blastGap < 0.18 && !knockedOut) {
       startleTimer = 0.55;
@@ -37642,7 +37645,7 @@ void main() {
           attr.needsUpdate = true;
           d.fallTrail.material.opacity = Math.min(0.82, 0.36 + d.vy * 0.28);
         }
-        const flashStart = d.type === "hive" ? 19.2 : ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "helmet"].includes(d.type) ? 3.35 : 1.35, willDisappear = ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "helmet", "bomb", "hive"].includes(d.type);
+        const flashStart = d.type === "hive" ? 39.2 : ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "helmet"].includes(d.type) ? 7.35 : 3.35, willDisappear = ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "helmet", "bomb", "hive"].includes(d.type);
         d.g.visible = !d.landed || !willDisappear || d.groundTime < flashStart || Math.floor((d.groundTime - flashStart) * 12) % 2 === 0;
         const closeness = Math.max(0, 1 - d.h / 2.15);
         d.g.scale.setScalar((0.2 + closeness * 0.22) * (d.type === "hive" ? 1.55 : 1));
@@ -37706,19 +37709,19 @@ void main() {
           continue;
         }
         if (d.landed && d.type === "hive" && !d.triggered) spawnBees(d);
-        if (d.landed && d.type === "bomb" && d.groundTime >= 2) {
+        if (d.landed && d.type === "bomb" && d.groundTime >= 4) {
           explodeBomb(d);
           world.remove(d.g);
           drops.splice(i, 1);
           continue;
         }
-        if (d.landed && goodDrop && d.groundTime >= 4) {
+        if (d.landed && goodDrop && d.groundTime >= 8) {
           document.documentElement.dataset.lastExpiredDrop = `${d.type}:${d.groundTime.toFixed(2)}`;
           world.remove(d.g);
           drops.splice(i, 1);
           continue;
         }
-        if (d.landed && d.type === "hive" && d.groundTime >= 20) {
+        if (d.landed && d.type === "hive" && d.groundTime >= 40) {
           world.remove(d.g);
           if (d.zoneRing) world.remove(d.zoneRing);
           drops.splice(i, 1);

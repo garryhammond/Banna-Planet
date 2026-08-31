@@ -180,7 +180,7 @@ const props=[],foliageDecor=[];let foliageCullFrame=0;
 const MAX_LANDED_PROPS=40;
 const landedProps=[];
 function removeLandedProp(entry){const landedIndex=landedProps.indexOf(entry),propIndex=props.indexOf(entry);if(landedIndex>=0)landedProps.splice(landedIndex,1);if(propIndex>=0)props.splice(propIndex,1);world.remove(entry.group);}
-function addLandedProp(entry){entry.groundTime=0;entry.life=12;props.push(entry);landedProps.push(entry);if(landedProps.length>MAX_LANDED_PROPS)removeLandedProp(landedProps[0]);}
+function addLandedProp(entry){entry.groundTime=0;entry.life=24;props.push(entry);landedProps.push(entry);if(landedProps.length>MAX_LANDED_PROPS)removeLandedProp(landedProps[0]);}
 function updateLandedProps(dt){
   for(let i=landedProps.length-1;i>=0;i--){const p=landedProps[i];p.groundTime+=dt;
     if(p.kind==='log'&&p.rollDirection&&p.groundTime<1.8){
@@ -867,7 +867,8 @@ function explodeBomb(d){
     const spark=new THREE.Mesh(new THREE.SphereGeometry(.012,6,4),new THREE.MeshBasicMaterial({color:i%3?0xffa21f:0xffffb4,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
     const a=Math.random()*Math.PI*2,s=.25+Math.random()*.32;spark.position.set(0,.13,0);spark.userData.velocity=new THREE.Vector3(Math.cos(a)*s,.2+Math.random()*.35,Math.sin(a)*s);blast.add(spark);sparks.push(spark);
   }
-  const light=new THREE.PointLight(0xff7a28,4.5,2.3,2);light.position.y=.22;blast.add(light);
+  const light=new THREE.PointLight(0xff7a28,5.2,4.6,2);light.position.y=.22;blast.add(light);
+  blast.scale.setScalar(2);
   world.add(blast);
   effects.push({g:blast,life:.9,maxLife:.9,update(dt,e){
     const age=e.maxLife-e.life,p=Math.min(1,age/e.maxLife);
@@ -877,9 +878,9 @@ function explodeBomb(d){
     for(const puff of smoke){puff.position.addScaledVector(puff.userData.drift,dt);puff.scale.multiplyScalar(1+dt*1.8);puff.material.opacity=Math.max(0,.78-p*.8);}
     for(const spark of sparks){spark.userData.velocity.y-=dt*.55;spark.position.addScaledVector(spark.userData.velocity,dt);spark.material.opacity=Math.max(0,1-p*1.18);}
   }});
-  // Tight local blast: roughly half a metre on this globe, rather than the
-  // previous broad area that could hit an ape standing visibly far away.
+  // Damage and startle zones are both doubled, matching the larger fireball.
   const blastGap=apeN.angleTo(d.n);
+  document.documentElement.dataset.bombDamageRadius='.09';document.documentElement.dataset.bombStartleRadius='.18';
   if(blastGap<.09)damageApe();
   else if(blastGap<.18&&!knockedOut){startleTimer=.55;tripPhase='startled';toast.textContent='YIKES!';setTimeout(()=>{if(!knockedOut)toast.textContent='';},500);}
   toast.textContent='BOOM!';setTimeout(()=>{if(!knockedOut)toast.textContent='';},450);
@@ -903,7 +904,7 @@ function frame(now){
       if(d.fallTrail){const attr=d.fallTrail.geometry.attributes.position,p=d.g.position;attr.setXYZ(0,p.x,p.y,p.z);attr.setXYZ(1,p.x+d.n.x*(.42+d.vy*.28),p.y+d.n.y*(.42+d.vy*.28),p.z+d.n.z*(.42+d.vy*.28));attr.needsUpdate=true;d.fallTrail.material.opacity=Math.min(.82,.36+d.vy*.28);}
       // Telegraph a grounded object's removal with a fast, readable blink.
       // Timing and collision behavior remain unchanged; only visibility pulses.
-      const flashStart=d.type==='hive'?19.2:['banana','coconut','coconutDrink','gem','star','heart','helmet'].includes(d.type)?3.35:1.35,willDisappear=['banana','coconut','coconutDrink','gem','star','heart','helmet','bomb','hive'].includes(d.type);
+      const flashStart=d.type==='hive'?39.2:['banana','coconut','coconutDrink','gem','star','heart','helmet'].includes(d.type)?7.35:3.35,willDisappear=['banana','coconut','coconutDrink','gem','star','heart','helmet','bomb','hive'].includes(d.type);
       d.g.visible=!d.landed||!willDisappear||d.groundTime<flashStart||Math.floor((d.groundTime-flashStart)*12)%2===0;
       const closeness=Math.max(0,1-d.h/2.15);
       // Keep drops proportional to the small ape: distant items are tiny, and
@@ -940,9 +941,9 @@ function frame(now){
         addLandedProp({kind:'rock',n:d.n.clone(),radius:.13,group:d.g});drops.splice(i,1);continue;
       }
       if(d.landed&&d.type==='hive'&&!d.triggered)spawnBees(d);
-      if(d.landed&&d.type==='bomb'&&d.groundTime>=2){explodeBomb(d);world.remove(d.g);drops.splice(i,1);continue;}
-      if(d.landed&&goodDrop&&d.groundTime>=4){document.documentElement.dataset.lastExpiredDrop=`${d.type}:${d.groundTime.toFixed(2)}`;world.remove(d.g);drops.splice(i,1);continue;}
-      if(d.landed&&d.type==='hive'&&d.groundTime>=20){world.remove(d.g);if(d.zoneRing)world.remove(d.zoneRing);drops.splice(i,1);continue;}
+      if(d.landed&&d.type==='bomb'&&d.groundTime>=4){explodeBomb(d);world.remove(d.g);drops.splice(i,1);continue;}
+      if(d.landed&&goodDrop&&d.groundTime>=8){document.documentElement.dataset.lastExpiredDrop=`${d.type}:${d.groundTime.toFixed(2)}`;world.remove(d.g);drops.splice(i,1);continue;}
+      if(d.landed&&d.type==='hive'&&d.groundTime>=40){world.remove(d.g);if(d.zoneRing)world.remove(d.zoneRing);drops.splice(i,1);continue;}
     }
     for(let i=bees.length-1;i>=0;i--){const b=bees[i];b.life-=dt;const falling=!b.source.landed,originGap=b.origin.angleTo(apeN),surfaceDistance=originGap*R,inZone=!falling&&surfaceDistance<=BEE_ATTACK_DISTANCE;if(!inZone)b.armed=true;
       if(falling){b.mode='orbit';b.travel=0;}
