@@ -13,6 +13,9 @@ const toast = document.querySelector('#toast');
 const cardTitle=document.querySelector('.card h2'),cardText=document.querySelector('.card p'),playButton=document.querySelector('#play');
 let W = 390, H = 844;
 const PLANET_SCALE = 1.3;
+// Keep the camera increase smaller than the planet increase so the larger
+// world is visibly larger/flatter in frame instead of cancelling itself out.
+const CAMERA_FRAME_SCALE = 1.25;
 const R = 10.5 * PLANET_SCALE;
 let audioCtx=null,audioMaster=null,musicMaster=null,audioLimiter=null,musicTimer=null,musicStep=0,masterLevel=Math.max(0,Math.min(1,Number(localStorage.getItem('bpVolume')??.65))),musicLevel=Math.max(0,Math.min(1,Number(localStorage.getItem('bpMusicVolume')??.35))),soundEnabled=localStorage.getItem('bpSound')!=='off'&&masterLevel>0,musicEnabled=localStorage.getItem('bpMusic')!=='off'&&musicLevel>0,lastStepBeat=-1,soundCount=0;
 const soundStatus=document.querySelector('#sound-status');
@@ -50,7 +53,7 @@ scene.fog = new THREE.FogExp2(0x78aebf, .019);
 const camera = new THREE.PerspectiveCamera(38, W/H, .1, 120);
 // Close gameplay framing: the world remains a complete sphere, but the viewport
 // concentrates on roughly one quarter of its surface around the camera-facing center.
-camera.position.set(0,.55*PLANET_SCALE,11.25*PLANET_SCALE);
+camera.position.set(0,.55*CAMERA_FRAME_SCALE,11.25*CAMERA_FRAME_SCALE);
 const CAMERA_LOOK = new THREE.Vector3(0,25.0*PLANET_SCALE,0);
 camera.lookAt(CAMERA_LOOK);
 const CLOSE_CAMERA_POSITION=camera.position.clone();
@@ -70,6 +73,8 @@ CAMERA_CENTER_NORMAL.applyAxisAngle(new THREE.Vector3(1,0,0),.025).normalize();
 const CAMERA_ZOOM_FOCUS=CAMERA_CENTER_NORMAL.clone().multiplyScalar(R);
 const CAMERA_ZOOM_DIRECTION=CLOSE_CAMERA_POSITION.clone().sub(CAMERA_ZOOM_FOCUS).normalize();
 const OVERVIEW_CAMERA_POSITION=CAMERA_ZOOM_FOCUS.clone().addScaledVector(CAMERA_ZOOM_DIRECTION,58*PLANET_SCALE);
+document.documentElement.dataset.planetScale=String(PLANET_SCALE);
+document.documentElement.dataset.cameraFrameScale=String(CAMERA_FRAME_SCALE);
 function applyCameraZoom(){
   const blend=THREE.MathUtils.smoothstep(cameraZoom,0,1);
   camera.position.lerpVectors(CLOSE_CAMERA_POSITION,OVERVIEW_CAMERA_POSITION,blend);

@@ -34605,6 +34605,7 @@ void main() {
   var W = 390;
   var H = 844;
   var PLANET_SCALE = 1.3;
+  var CAMERA_FRAME_SCALE = 1.25;
   var R = 10.5 * PLANET_SCALE;
   var audioCtx = null;
   var audioMaster = null;
@@ -34885,7 +34886,7 @@ void main() {
   var scene = new Scene();
   scene.fog = new FogExp2(7909055, 0.019);
   var camera = new PerspectiveCamera(38, W / H, 0.1, 120);
-  camera.position.set(0, 0.55 * PLANET_SCALE, 11.25 * PLANET_SCALE);
+  camera.position.set(0, 0.55 * CAMERA_FRAME_SCALE, 11.25 * CAMERA_FRAME_SCALE);
   var CAMERA_LOOK = new Vector3(0, 25 * PLANET_SCALE, 0);
   camera.lookAt(CAMERA_LOOK);
   var CLOSE_CAMERA_POSITION = camera.position.clone();
@@ -34902,6 +34903,8 @@ void main() {
   var CAMERA_ZOOM_FOCUS = CAMERA_CENTER_NORMAL.clone().multiplyScalar(R);
   var CAMERA_ZOOM_DIRECTION = CLOSE_CAMERA_POSITION.clone().sub(CAMERA_ZOOM_FOCUS).normalize();
   var OVERVIEW_CAMERA_POSITION = CAMERA_ZOOM_FOCUS.clone().addScaledVector(CAMERA_ZOOM_DIRECTION, 58 * PLANET_SCALE);
+  document.documentElement.dataset.planetScale = String(PLANET_SCALE);
+  document.documentElement.dataset.cameraFrameScale = String(CAMERA_FRAME_SCALE);
   function applyCameraZoom() {
     const blend = MathUtils.smoothstep(cameraZoom, 0, 1);
     camera.position.lerpVectors(CLOSE_CAMERA_POSITION, OVERVIEW_CAMERA_POSITION, blend);
