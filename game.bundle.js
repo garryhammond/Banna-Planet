@@ -34708,6 +34708,9 @@ void main() {
     if (musicEnabled) startMusicLoop();
     showSoundStatus(`\u{1F50A} Effects ${Math.round(masterLevel * 100)}% \xB7 Music ${Math.round(musicLevel * 100)}%`);
   }
+  addEventListener("pointerdown", () => {
+    if (soundEnabled || musicEnabled) startAudio();
+  }, { once: true, capture: true });
   function tone(freq, duration = 0.12, type = "sine", volume = 0.18, slide = 1) {
     if (!soundEnabled || !audioCtx || audioCtx.state !== "running") return;
     const now = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
@@ -34748,9 +34751,11 @@ void main() {
       noise(0.32, 0.035, 1500);
       tone(360, 0.28, "sine", 0.045, 0.48);
     } else if (name === "whoa") {
-      tone(430, 0.55, "sawtooth", 0.1, 0.32);
-      setTimeout(() => tone(315, 0.38, "triangle", 0.055, 0.48), 170);
-      setTimeout(() => tone(225, 0.28, "triangle", 0.032, 0.55), 350);
+      tone(460, 0.62, "sawtooth", 0.16, 0.28);
+      noise(0.42, 0.025, 1200);
+      setTimeout(() => tone(330, 0.42, "triangle", 0.085, 0.42), 150);
+      setTimeout(() => tone(240, 0.34, "triangle", 0.055, 0.5), 320);
+      setTimeout(() => tone(175, 0.25, "sine", 0.035, 0.58), 500);
     } else if (name === "land") {
       noise(0.11, 0.085, 650);
       tone(105, 0.12, "triangle", 0.12, 0.72);
@@ -34787,6 +34792,29 @@ void main() {
     } else if (name === "stomp") {
       noise(0.1, 0.08, 360);
       tone(72, 0.14, "triangle", 0.12, 0.62);
+    }
+  }
+  function monkeyVocal(mood = "happy") {
+    if (!soundEnabled || !audioCtx || audioCtx.state !== "running") return;
+    document.documentElement.dataset.lastMonkeyVocal = mood;
+    if (mood === "happy") {
+      tone(310, 0.11, "sine", 0.07, 0.86);
+      setTimeout(() => tone(325, 0.1, "sine", 0.065, 0.84), 115);
+      setTimeout(() => tone(610, 0.075, "sawtooth", 0.05, 1.12), 235);
+      setTimeout(() => tone(690, 0.075, "sawtooth", 0.045, 0.92), 320);
+    } else if (mood === "angry") {
+      tone(330, 0.085, "sine", 0.075, 0.78);
+      setTimeout(() => tone(350, 0.08, "sine", 0.07, 0.76), 85);
+      setTimeout(() => tone(680, 0.065, "sawtooth", 0.065, 0.86), 175);
+      setTimeout(() => tone(735, 0.065, "square", 0.05, 0.78), 250);
+      setTimeout(() => tone(310, 0.11, "sawtooth", 0.065, 0.62), 335);
+      if (Math.random() < 0.24) {
+        setTimeout(() => tone(470, 0.36, "sawtooth", 0.085, 1.7), 430);
+        setTimeout(() => tone(800, 0.22, "triangle", 0.07, 0.48), 690);
+      }
+    } else {
+      tone(290, 0.12, "sawtooth", 0.07, 0.63);
+      setTimeout(() => tone(205, 0.16, "triangle", 0.065, 0.72), 80);
     }
   }
   var lastRustle = 0;
@@ -35163,6 +35191,41 @@ void main() {
     const tex = new CanvasTexture(c);
     tex.colorSpace = SRGBColorSpace;
     return tex;
+  }
+  function makeHoleSoilTexture() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 512;
+    const x = c.getContext("2d"), grad = x.createRadialGradient(245, 220, 18, 256, 256, 350);
+    grad.addColorStop(0, "#26170f");
+    grad.addColorStop(0.38, "#49301d");
+    grad.addColorStop(0.72, "#684224");
+    grad.addColorStop(1, "#382317");
+    x.fillStyle = grad;
+    x.fillRect(0, 0, 512, 512);
+    let s = 9137;
+    const rnd = () => (s = s * 1664525 + 1013904223 >>> 0) / 4294967296;
+    for (let i = 0; i < 1800; i++) {
+      const px2 = rnd() * 512, py2 = rnd() * 512, r = 0.5 + rnd() * 3.6, v = 34 + Math.floor(rnd() * 72);
+      x.fillStyle = `rgba(${v + 35},${v + 14},${Math.max(12, v - 8)},${0.15 + rnd() * 0.45})`;
+      x.beginPath();
+      x.ellipse(px2, py2, r * 1.5, r, 0.4 * rnd(), 0, Math.PI * 2);
+      x.fill();
+    }
+    for (let i = 0; i < 95; i++) {
+      const px2 = rnd() * 512, py2 = rnd() * 512, len = 5 + rnd() * 15;
+      x.strokeStyle = `rgba(37,21,13,${0.18 + rnd() * 0.32})`;
+      x.lineWidth = 0.7 + rnd() * 2;
+      x.beginPath();
+      x.moveTo(px2, py2);
+      x.quadraticCurveTo(px2 + len * 0.4, py2 + (rnd() - 0.5) * 5, px2 + len, py2 + (rnd() - 0.5) * 7);
+      x.stroke();
+    }
+    const t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    t.wrapS = t.wrapT = RepeatWrapping;
+    t.repeat.set(1.7, 1.35);
+    t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    return t;
   }
   var palmLeafTexture = makePalmLeafTexture();
   var coconutHuskTexture = makeCoconutHuskTexture();
@@ -35629,25 +35692,57 @@ void main() {
     else if (i % 11 === 0) dirtPatch(n, 0.55);
     else grassTuft(n, 0.38 + i % 4 * 0.05);
   }
+  var holeSoilTexture = makeHoleSoilTexture();
   function groundHole(n, s = 1) {
-    const g = new Group(), pitMat = new MeshBasicMaterial({ color: 525828, side: DoubleSide }), soilMat = new MeshStandardMaterial({ color: 6961950, roughness: 1 });
-    const pit = new Mesh(new CircleGeometry(0.43, 36), pitMat);
+    const g = new Group(), pitMat = new MeshBasicMaterial({ color: 525828, side: DoubleSide }), soilMat = new MeshStandardMaterial({ color: 7031085, map: holeSoilTexture, bumpMap: holeSoilTexture, bumpScale: 0.045, roughness: 1 });
+    const openingShape = new Shape();
+    for (let i = 0; i < 32; i++) {
+      const a = i / 32 * Math.PI * 2, r = 0.43 * (0.96 + 0.045 * Math.sin(i * 4.9) + 0.025 * Math.cos(i * 7.7)), x = Math.cos(a) * r, z = Math.sin(a) * r * 0.72;
+      i ? openingShape.lineTo(x, z) : openingShape.moveTo(x, z);
+    }
+    openingShape.closePath();
+    const pit = new Mesh(new ShapeGeometry(openingShape), pitMat);
     pit.rotation.x = -Math.PI / 2;
-    pit.position.y = 0.032;
-    pit.scale.z = 0.72;
+    pit.position.y = 0.034;
     pit.renderOrder = 3;
     g.add(pit);
-    const innerWall = new Mesh(new TorusGeometry(0.425, 0.052, 8, 36), new MeshStandardMaterial({ color: 3809556, roughness: 1 }));
-    innerWall.rotation.x = Math.PI / 2;
-    innerWall.position.y = 0.038;
-    innerWall.scale.z = 0.72;
-    innerWall.castShadow = true;
-    g.add(innerWall);
-    for (let i = 0; i < 7; i++) {
-      const a = [0.18, 0.76, 1.58, 2.4, 3.2, 4.25, 5.4][i], r = 0.43, clod = new Mesh(new DodecahedronGeometry(0.045 + i % 3 * 9e-3, 0), i === 2 || i === 5 ? rockMat : soilMat);
+    const bankShape = new Shape();
+    for (let i = 0; i < 28; i++) {
+      const a = i / 28 * Math.PI * 2, r = 0.59 * (0.94 + 0.07 * Math.sin(i * 3.7) + 0.035 * Math.cos(i * 8.1)), x = Math.cos(a) * r, z = Math.sin(a) * r * 0.77;
+      i ? bankShape.lineTo(x, z) : bankShape.moveTo(x, z);
+    }
+    bankShape.closePath();
+    const dirtBank = new Mesh(new ShapeGeometry(bankShape), soilMat);
+    dirtBank.rotation.x = -Math.PI / 2;
+    dirtBank.position.y = 0.024;
+    dirtBank.receiveShadow = true;
+    g.add(dirtBank);
+    const patchColors = [9134135, 6043681, 10514498, 7357993];
+    for (let i = 0; i < 9; i++) {
+      const a = 0.18 + i * 2.399963, r = 0.45 + i % 3 * 0.045, patch = new Mesh(new CircleGeometry(0.075 + i % 4 * 0.012, 7), new MeshStandardMaterial({ color: patchColors[i % patchColors.length], map: holeSoilTexture, roughness: 1 }));
+      patch.rotation.x = -Math.PI / 2;
+      patch.rotation.z = i * 0.73;
+      patch.position.set(Math.cos(a) * r, 0.041, Math.sin(a) * r * 0.73);
+      patch.scale.set(1.45, 0.68, 1);
+      patch.receiveShadow = true;
+      g.add(patch);
+    }
+    const grainMat = new MeshStandardMaterial({ color: 2628371, roughness: 1 }), grainGeo = new DodecahedronGeometry(0.018, 0), grains = new InstancedMesh(grainGeo, grainMat, 14), grainDummy = new Object3D();
+    for (let i = 0; i < 14; i++) {
+      const a = i * 2.399963 + 0.2, r = 0.44 + i % 4 * 0.035;
+      grainDummy.position.set(Math.cos(a) * r, 0.039, Math.sin(a) * r * 0.74);
+      grainDummy.rotation.set(i * 0.31, i * 0.77, 0);
+      grainDummy.scale.set(1 + i % 3 * 0.3, 0.32, 0.7 + i % 2 * 0.25);
+      grainDummy.updateMatrix();
+      grains.setMatrixAt(i, grainDummy.matrix);
+    }
+    grains.instanceMatrix.needsUpdate = true;
+    g.add(grains);
+    for (let i = 0; i < 5; i++) {
+      const a = [0.38, 1.74, 2.68, 4.12, 5.05][i], r = 0.47 + i % 2 * 0.04, clod = new Mesh(new DodecahedronGeometry(0.035 + i % 3 * 9e-3, 0), i === 1 || i === 4 ? rockMat : soilMat);
       clod.position.set(Math.cos(a) * r, 0.052, Math.sin(a) * r * 0.72);
-      clod.scale.set(1.25, 0.48, 0.78);
-      clod.rotation.y = -a + i * 0.29;
+      clod.scale.set(1.2, 0.45, 0.78);
+      clod.rotation.y = -a + i * 0.31;
       clod.castShadow = true;
       g.add(clod);
     }
@@ -35658,6 +35753,14 @@ void main() {
       root.rotation.y = -a;
       root.position.set(Math.cos(a) * 0.34, 0.058, Math.sin(a) * 0.25);
       g.add(root);
+    }
+    const edgeGrassMat = new MeshStandardMaterial({ color: 4682791, roughness: 0.92 });
+    for (let i = 0; i < 7; i++) {
+      const a = 0.7 + i * 1.37, r = 0.55 + i % 2 * 0.025, blade = new Mesh(new ConeGeometry(0.016, 0.12, 4), edgeGrassMat);
+      blade.position.set(Math.cos(a) * r, 0.074, Math.sin(a) * r * 0.74);
+      blade.rotation.z = i % 2 ? -0.16 : 0.2;
+      blade.rotation.y = -a;
+      g.add(blade);
     }
     for (let i = props.length - 1; i >= 0; i--) {
       if (n.angleTo(props[i].n) < 0.065) {
@@ -36978,6 +37081,7 @@ void main() {
       const result = costsHealth ? loseHealth(1) : "hurt";
       if (result === "gameover" || result === "blocked") return;
       playCue("trip");
+      if (costsHealth) setTimeout(() => monkeyVocal("hurt"), 75);
       trip = 2.15;
       tripPhase = "stumble";
       tripObstacle = obstacle;
@@ -36992,6 +37096,7 @@ void main() {
     const result = loseHealth(1);
     if (result === "gameover" || result === "blocked") return;
     playCue("hit");
+    setTimeout(() => monkeyVocal("hurt"), 65);
     hitTimer = 0.48;
     pendingDamageTrip = true;
     tripPhase = "hit";
@@ -37425,7 +37530,7 @@ void main() {
           reversalFall = false;
           angryTimer = 1.15;
           angryStompPlayed = false;
-          playCue("yell");
+          monkeyVocal("angry");
         }
         if (tripObstacle) {
           obstacleGrace = 3;
@@ -37685,6 +37790,7 @@ void main() {
         if (goodDrop && d.g.position.distanceTo(apeCatchPoint) < 0.22 && !(d.type === "heart" && lives >= MAX_LIVES) && !(d.type === "helmet" && helmetEquipped)) {
           finishAirDrop(d);
           playCue("catch");
+          if (Math.random() < 0.38) setTimeout(() => monkeyVocal("happy"), 110);
           if (d.type === "heart") {
             lives = Math.min(MAX_LIVES, lives + 1);
             updateHUD();
