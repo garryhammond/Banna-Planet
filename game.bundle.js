@@ -34890,7 +34890,8 @@ void main() {
   var CAMERA_LOOK = new Vector3(0, 25 * PLANET_SCALE, 0);
   camera.lookAt(CAMERA_LOOK);
   var CLOSE_CAMERA_POSITION = camera.position.clone();
-  var cameraZoom = 0.14;
+  var cameraZoom = 1;
+  var introZoomTimer = 0;
   var groundDetailMaterial = null;
   camera.updateProjectionMatrix();
   camera.projectionMatrix.elements[9] = 0.5;
@@ -35624,6 +35625,38 @@ void main() {
     else if (i % 11 === 0) dirtPatch(n, 0.55);
     else grassTuft(n, 0.38 + i % 4 * 0.05);
   }
+  function groundHole(n, s = 1) {
+    const g = new Group(), pitMat = new MeshBasicMaterial({ color: 525828, side: DoubleSide }), soilMat = new MeshStandardMaterial({ color: 6961950, roughness: 1 });
+    const pitShape = new Shape();
+    for (let i = 0; i < 18; i++) {
+      const a = i / 18 * Math.PI * 2, r = 0.39 * (0.88 + 0.13 * Math.sin(i * 4.7) + 0.07 * Math.cos(i * 7.3)), x = Math.cos(a) * r, z = Math.sin(a) * r;
+      i ? pitShape.lineTo(x, z) : pitShape.moveTo(x, z);
+    }
+    pitShape.closePath();
+    const pit = new Mesh(new ShapeGeometry(pitShape), pitMat);
+    pit.rotation.x = -Math.PI / 2;
+    pit.position.y = 3e-3;
+    g.add(pit);
+    for (let i = 0; i < 13; i++) {
+      const a = i / 13 * Math.PI * 2 + 0.12 * Math.sin(i * 2.1), r = 0.38 + i % 3 * 0.012, clod = new Mesh(new DodecahedronGeometry(0.055 + i % 4 * 0.012, 0), i % 4 === 0 ? rockMat : soilMat);
+      clod.position.set(Math.cos(a) * r, 0.018 + i % 2 * 0.012, Math.sin(a) * r);
+      clod.scale.set(1.3, 0.55, 0.85);
+      clod.rotation.y = -a + i * 0.37;
+      clod.castShadow = true;
+      g.add(clod);
+    }
+    for (const a of [0.28, 2.55, 4.72]) {
+      const root = new Mesh(new CylinderGeometry(0.018, 0.028, 0.34, 7), new MeshStandardMaterial({ color: 5911067, roughness: 1 }));
+      root.rotation.z = Math.PI / 2;
+      root.rotation.y = -a;
+      root.position.set(Math.cos(a) * 0.32, 0.035, Math.sin(a) * 0.32);
+      g.add(root);
+    }
+    g.scale.setScalar(s);
+    plant(g, n, 2e-3);
+    props.push({ kind: "hole", n: n.clone(), radius: 0.34 * s, group: g });
+  }
+  for (let i = 0; i < 5; i++) groundHole(normalAt(-0.42 + i * 0.21, 1.05 + i * 1.17), 0.88 + i % 2 * 0.12);
   var midX = new Vector3(1, 0, 0);
   var midY = new Vector3(0, 1, 0);
   function midNormal(depth, side) {
@@ -35909,6 +35942,19 @@ void main() {
   }
   dizzyStars.visible = false;
   apeModel.add(dizzyStars);
+  var equippedHelmet = new Group();
+  var helmetMat = new MeshPhysicalMaterial({ color: 4169184, emissive: 601941, emissiveIntensity: 0.22, roughness: 0.3, metalness: 0.08, clearcoat: 0.9 });
+  var helmetShell = new Mesh(new SphereGeometry(0.33, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.56), helmetMat);
+  helmetShell.scale.set(1.12, 0.72, 1.06);
+  helmetShell.position.y = 0.965;
+  helmetShell.castShadow = true;
+  equippedHelmet.add(helmetShell);
+  var helmetBrim = new Mesh(new BoxGeometry(0.28, 0.035, 0.13), helmetMat);
+  helmetBrim.position.set(0, 0.91, 0.285);
+  helmetBrim.castShadow = true;
+  equippedHelmet.add(helmetBrim);
+  equippedHelmet.visible = false;
+  apeModel.add(equippedHelmet);
   var MAX_HEALTH = 5;
   var MAX_LIVES = 3;
   var BASE_LEVEL_GOAL = 50;
@@ -35920,6 +35966,7 @@ void main() {
   var score = 0;
   var health = MAX_HEALTH;
   var lives = MAX_LIVES;
+  var helmetEquipped = false;
   var level = 1;
   var levelGoal = BASE_LEVEL_GOAL;
   var levelCleared = false;
@@ -35931,6 +35978,8 @@ void main() {
   var reversalFall = false;
   var angryTimer = 0;
   var angryStompPlayed = false;
+  var holeFallTimer = 0;
+  var holeRespawnPoint = null;
   var tripObstacle = null;
   var obstacleGrace = 0;
   var avoidObstacle = null;
@@ -36203,7 +36252,7 @@ void main() {
     }
   }
   installTreeHives();
-  var DROP_WEIGHTS = [["banana", 0.42], ["coconutDrink", 0.09], ["star", 0.05], ["gem", 0.09], ["heart", 0.05], ["rock", 0.11], ["log", 0.08], ["bomb", 0.06], ["hive", 0.05]];
+  var DROP_WEIGHTS = [["banana", 0.4], ["coconutDrink", 0.09], ["star", 0.05], ["gem", 0.09], ["heart", 0.05], ["helmet", 0.02], ["rock", 0.11], ["log", 0.08], ["bomb", 0.06], ["hive", 0.05]];
   document.documentElement.dataset.goodDropChance = "0.70";
   var SMALL_PLANE_MODEL_SCALE = 0.42;
   var CARGO_PLANE_MODEL_SCALE = 0.62;
@@ -36493,6 +36542,18 @@ void main() {
     g.add(new PointLight(16732774, 1, 1.3));
     return g;
   }
+  function makeHelmet() {
+    const g = new Group(), mat = helmetMat.clone(), shell = new Mesh(new SphereGeometry(0.22, 22, 13, 0, Math.PI * 2, 0, Math.PI * 0.58), mat);
+    shell.scale.y = 0.72;
+    shell.castShadow = true;
+    g.add(shell);
+    const brim = new Mesh(new BoxGeometry(0.2, 0.035, 0.12), mat);
+    brim.position.set(0, -0.02, 0.19);
+    brim.castShadow = true;
+    g.add(brim);
+    g.add(new PointLight(6142719, 0.8, 1.2));
+    return g;
+  }
   function makeCoconutDrink() {
     const g = new Group(), shellMat = new MeshStandardMaterial({ color: 8078367, roughness: 0.92 }), milkMat = new MeshPhysicalMaterial({ color: 16114871, roughness: 0.38, clearcoat: 0.45 }), cup = new Mesh(new SphereGeometry(0.17, 16, 12, 0, Math.PI * 2, 0.42, Math.PI * 0.58), shellMat);
     cup.scale.y = 0.9;
@@ -36527,7 +36588,7 @@ void main() {
     return g;
   }
   function makeDropModel(type) {
-    return type === "banana" ? makeBanana() : type === "coconutDrink" ? makeCoconutDrink() : type === "star" ? makeStar() : type === "gem" ? makeGem() : type === "heart" ? makeHeart() : type === "bomb" ? makeBomb() : type === "rock" ? makeFallingRock() : type === "log" ? makeFallingLog() : makeHive();
+    return type === "banana" ? makeBanana() : type === "coconutDrink" ? makeCoconutDrink() : type === "star" ? makeStar() : type === "gem" ? makeGem() : type === "heart" ? makeHeart() : type === "helmet" ? makeHelmet() : type === "bomb" ? makeBomb() : type === "rock" ? makeFallingRock() : type === "log" ? makeFallingLog() : makeHive();
   }
   function dropTreeReward(tree2, type) {
     const g = type === "heart" ? makeHeart() : type === "coconutDrink" ? makeCoconutDrink() : type === "star" ? makeStar() : makeGem(), n = offsetDropPoint(tree2.n, 0.018), drop = { type, n, g, h: 0.78, vy: 0.14, landed: false, groundTime: 0, triggered: false };
@@ -36559,7 +36620,7 @@ void main() {
     const type = forcedType || pickDropType();
     const leadAmount = type === "rock" ? Math.min(0.62, 0.28 + runSpeed * 1.8) : Math.min(0.38, 0.12 + runSpeed * 1.35);
     const predictedApe = apeN.clone().lerp(targetN, leadAmount).normalize();
-    const goodCargo = ["banana", "coconutDrink", "star", "gem", "heart"].includes(type);
+    const goodCargo = ["banana", "coconutDrink", "star", "gem", "heart", "helmet"].includes(type);
     const n = goodCargo ? offsetDropPoint(targetN, 0.68) : offsetDropPoint(predictedApe, type === "rock" ? 0.011 : 0.026);
     const tangentA = new Vector3().crossVectors(n, Math.abs(n.y) > 0.9 ? new Vector3(1, 0, 0) : UP).normalize();
     const tangentB = new Vector3().crossVectors(n, tangentA).normalize(), flightAngle = Math.random() * Math.PI * 2;
@@ -36614,7 +36675,7 @@ void main() {
     drops.push(drop);
   }
   function qaCatchReward(type) {
-    const g = type === "heart" ? makeHeart() : type === "coconutDrink" ? makeCoconutDrink() : type === "star" ? makeStar() : makeGem(), drop = { type, n: apeN.clone(), g, h: 0.2, vy: 0.25, landed: false, groundTime: 0, triggered: false };
+    const g = makeDropModel(type), drop = { type, n: apeN.clone(), g, h: 0.2, vy: 0.25, landed: false, groundTime: 0, triggered: false };
     world.add(g);
     drops.push(drop);
   }
@@ -36920,8 +36981,49 @@ void main() {
       if (!knockedOut) toast.textContent = "";
     }, 650);
   }
+  function fallInHole(hole) {
+    if (knockedOut || holeFallTimer > 0) return;
+    playCue("trip");
+    lives = Math.max(0, lives - 1);
+    updateHUD();
+    runSpeed = 0;
+    trip = 0;
+    tripPhase = "hole-fall";
+    if (lives <= 0) {
+      knockedOut = true;
+      running = false;
+      toast.textContent = "GAME OVER!";
+      setTimeout(() => {
+        cardTitle.textContent = "Game Over";
+        cardText.textContent = `Level ${level} \xB7 ${score} points. Ready for another run?`;
+        playButton.textContent = "NEW GAME";
+        start.hidden = false;
+      }, 900);
+      return;
+    }
+    const respawnAxis = new Vector3().crossVectors(targetN, UP);
+    if (respawnAxis.lengthSq() < 1e-3) respawnAxis.set(1, 0, 0);
+    respawnAxis.normalize();
+    holeFallTimer = 1.2;
+    holeRespawnPoint = clearRecoveryPoint(targetN.clone().applyAxisAngle(respawnAxis, 0.08), targetN);
+    toast.textContent = "FELL IN A HOLE!";
+    document.documentElement.dataset.lastHazard = "hole";
+  }
   updateHUD();
+  function useHelmet() {
+    if (!helmetEquipped) return false;
+    helmetEquipped = false;
+    equippedHelmet.visible = false;
+    playCue("bonk");
+    toast.textContent = "HELMET SAVE!";
+    document.documentElement.dataset.helmet = "used";
+    setTimeout(() => {
+      if (!knockedOut && toast.textContent === "HELMET SAVE!") toast.textContent = "";
+    }, 800);
+    return true;
+  }
   function rockHitApe() {
+    if (useHelmet()) return;
     playCue("bonk");
     stunTimer = 2;
     stunBirds.visible = true;
@@ -36929,6 +37031,7 @@ void main() {
     toast.textContent = "BONK!";
   }
   function logHeadHitApe() {
+    if (useHelmet()) return;
     playCue("bonk");
     logDizzyTimer = 2.15;
     dizzyStars.visible = true;
@@ -37009,6 +37112,28 @@ void main() {
       placeApe();
       return;
     }
+    if (holeFallTimer > 0) {
+      holeFallTimer -= dt;
+      const p = MathUtils.clamp(holeFallTimer / 1.2, 0, 1);
+      apeModel.scale.setScalar(0.7 * Math.max(0.05, p));
+      apeModel.position.y = -(1 - p) * 0.25;
+      apeModel.rotation.y += dt * 5;
+      placeApe();
+      if (holeFallTimer <= 0) {
+        apeN.copy(holeRespawnPoint || targetN);
+        apeModel.scale.setScalar(0.7);
+        apeModel.position.y = 0;
+        apeModel.rotation.set(0, 0, 0);
+        holeRespawnPoint = null;
+        tripPhase = "run";
+        obstacleGrace = 1;
+        toast.textContent = "BACK IN THE RUN!";
+        setTimeout(() => {
+          if (!knockedOut) toast.textContent = "";
+        }, 700);
+      }
+      return;
+    }
     if (hitTimer > 0) {
       hitTimer -= dt;
       runSpeed = 0;
@@ -37076,6 +37201,7 @@ void main() {
           moveDir.addScaledVector(detour, side * 2.4);
         }
         for (const p of props) {
+          if (p.kind === "hole") continue;
           const d = apeN.angleTo(p.n), towardProp = tangentToward(apeN, p.n);
           if (d < 0.25 && desired.dot(towardProp) > 0.18) {
             const clearance = propHitAngle(p);
@@ -37095,6 +37221,10 @@ void main() {
           const step = runSpeed * dt;
           apeN.addScaledVector(moveDir, step).normalize();
           for (const p of props) {
+            if (p.kind === "hole" && apeN.angleTo(p.n) < propHitAngle(p)) {
+              fallInHole(p);
+              break;
+            }
             if (p.kind === "tree") continue;
             const hitRadius = propHitAngle(p);
             if (apeN.angleTo(p.n) < hitRadius && !(obstacleGrace > 0 && p === tripObstacle)) {
@@ -37110,6 +37240,10 @@ void main() {
               }
               break;
             }
+          }
+          if (holeFallTimer > 0) {
+            placeApe();
+            return;
           }
           if (trip <= 0) for (const p of props) {
             if (p.kind === "tree" && apeN.angleTo(p.n) < propHitAngle(p)) {
@@ -37367,8 +37501,8 @@ void main() {
       }
     } });
     const blastGap = apeN.angleTo(d.n);
-    if (blastGap < 0.045) damageApe();
-    else if (blastGap < 0.09 && !knockedOut) {
+    if (blastGap < 0.09) damageApe();
+    else if (blastGap < 0.18 && !knockedOut) {
       startleTimer = 0.55;
       tripPhase = "startled";
       toast.textContent = "YIKES!";
@@ -37389,6 +37523,13 @@ void main() {
     last = now;
     const t = now / 1e3;
     if (running) {
+      if (introZoomTimer > 0) {
+        introZoomTimer = Math.max(0, introZoomTimer - dt);
+        const p = 1 - introZoomTimer / 2.2, cubic = 1 - Math.pow(1 - p, 3);
+        cameraZoom = MathUtils.lerp(1, 0.14, cubic);
+        applyCameraZoom();
+        if (introZoomTimer <= 0) document.documentElement.dataset.introZoom = "complete";
+      }
       if (!dragging) {
         const kv = keyboardVector();
         if (kv.x || kv.y) {
@@ -37501,20 +37642,25 @@ void main() {
           attr.needsUpdate = true;
           d.fallTrail.material.opacity = Math.min(0.82, 0.36 + d.vy * 0.28);
         }
-        const flashStart = d.type === "hive" ? 19.2 : ["banana", "coconut", "coconutDrink", "gem", "star", "heart"].includes(d.type) ? 3.35 : 1.35, willDisappear = ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "bomb", "hive"].includes(d.type);
+        const flashStart = d.type === "hive" ? 19.2 : ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "helmet"].includes(d.type) ? 3.35 : 1.35, willDisappear = ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "helmet", "bomb", "hive"].includes(d.type);
         d.g.visible = !d.landed || !willDisappear || d.groundTime < flashStart || Math.floor((d.groundTime - flashStart) * 12) % 2 === 0;
         const closeness = Math.max(0, 1 - d.h / 2.15);
         d.g.scale.setScalar((0.2 + closeness * 0.22) * (d.type === "hive" ? 1.55 : 1));
         const apeCatchPoint = apeN.clone().multiplyScalar(R + 0.2);
         const apeHeadPoint = apeN.clone().multiplyScalar(R + 0.43);
-        const goodDrop = ["banana", "coconut", "coconutDrink", "gem", "star", "heart"].includes(d.type);
-        if (goodDrop && d.g.position.distanceTo(apeCatchPoint) < 0.22 && !(d.type === "heart" && lives >= MAX_LIVES)) {
+        const goodDrop = ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "helmet"].includes(d.type);
+        if (goodDrop && d.g.position.distanceTo(apeCatchPoint) < 0.22 && !(d.type === "heart" && lives >= MAX_LIVES) && !(d.type === "helmet" && helmetEquipped)) {
           finishAirDrop(d);
           playCue("catch");
           if (d.type === "heart") {
             lives = Math.min(MAX_LIVES, lives + 1);
             updateHUD();
             toast.textContent = "+1 LIFE!";
+          } else if (d.type === "helmet") {
+            helmetEquipped = true;
+            equippedHelmet.visible = true;
+            document.documentElement.dataset.helmet = "equipped";
+            toast.textContent = "HELMET READY!";
           } else {
             const reward = d.type === "star" ? 10 : d.type === "gem" ? 5 : d.type === "coconutDrink" ? 3 : d.type === "coconut" ? 2 : 1;
             score += reward;
@@ -37674,6 +37820,12 @@ void main() {
       updateHUD();
       toast.textContent = "";
     }
+    if (playButton.textContent.includes("START")) {
+      cameraZoom = 1;
+      applyCameraZoom();
+      introZoomTimer = 2.2;
+      document.documentElement.dataset.introZoom = "running";
+    }
     start.hidden = true;
     running = true;
   });
@@ -37706,6 +37858,14 @@ void main() {
     if (k === "y" && qa) qaCatchReward("heart");
     if (k === "o" && qa) qaCatchReward("coconutDrink");
     if (k === "x" && qa) qaCatchReward("star");
+    if (k === "e" && qa) qaCatchReward("helmet");
+    if (k === "d" && qa) {
+      const hole = props.find((p) => p.kind === "hole");
+      if (hole) {
+        apeN.copy(hole.n);
+        fallInHole(hole);
+      }
+    }
     if (k === "p" && qa) spawnDrop("rock");
     if (k === "q" && qa) spawnCargoBurst();
     if (k === "w" && qa) spawnDrop("banana");
