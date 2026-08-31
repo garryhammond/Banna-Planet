@@ -355,6 +355,7 @@ function groundHole(n,s=1){
   const g=new THREE.Group(),pitMat=new THREE.MeshBasicMaterial({map:pitDepthTexture,color:0xffffff,side:THREE.DoubleSide}),soilMat=new THREE.MeshStandardMaterial({color:0xa17244,map:holeSoilTexture,bumpMap:holeSoilTexture,bumpScale:.07,roughness:1});
   const openingShape=roundedHoleShape(.3,.72,.8,.075);
   const pit=new THREE.Mesh(new THREE.ShapeGeometry(openingShape),pitMat);pit.rotation.x=-Math.PI/2;pit.position.y=-.17;g.add(pit);
+  const backstopMat=new THREE.MeshBasicMaterial({color:0x010100,side:THREE.DoubleSide}),backstop=new THREE.Mesh(new THREE.ShapeGeometry(roundedHoleShape(.57,.78,.3,.04)),backstopMat);backstop.rotation.x=-Math.PI/2;backstop.position.y=-.27;g.add(backstop);
   const bankShape=roundedHoleShape(.86,.74,2.1,.13);
   bankShape.holes.push(roundedHoleShape(.445,.72,.8,.075));
   const dirtBank=new THREE.Mesh(new THREE.ShapeGeometry(bankShape),soilMat);dirtBank.rotation.x=-Math.PI/2;dirtBank.position.y=.024;dirtBank.receiveShadow=true;g.add(dirtBank);

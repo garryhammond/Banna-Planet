@@ -35844,6 +35844,10 @@ void main() {
     pit.rotation.x = -Math.PI / 2;
     pit.position.y = -0.17;
     g.add(pit);
+    const backstopMat = new MeshBasicMaterial({ color: 65792, side: DoubleSide }), backstop = new Mesh(new ShapeGeometry(roundedHoleShape(0.57, 0.78, 0.3, 0.04)), backstopMat);
+    backstop.rotation.x = -Math.PI / 2;
+    backstop.position.y = -0.27;
+    g.add(backstop);
     const bankShape = roundedHoleShape(0.86, 0.74, 2.1, 0.13);
     bankShape.holes.push(roundedHoleShape(0.445, 0.72, 0.8, 0.075));
     const dirtBank = new Mesh(new ShapeGeometry(bankShape), soilMat);
