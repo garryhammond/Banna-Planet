@@ -4,6 +4,7 @@
   var CullFaceNone = 0;
   var CullFaceBack = 1;
   var CullFaceFront = 2;
+  var BasicShadowMap = 0;
   var PCFShadowMap = 1;
   var PCFSoftShadowMap = 2;
   var VSMShadowMap = 3;
@@ -34604,6 +34605,7 @@ void main() {
   var playButton = document.querySelector("#play");
   var W = 390;
   var H = 844;
+  var MOBILE_GPU_PROFILE = /iPhone|iPad|iPod/i.test(navigator.userAgent) || matchMedia("(pointer:coarse)").matches && innerWidth <= 820 || new URLSearchParams(location.search).has("mobile");
   var PLANET_SCALE = 1.3;
   var CAMERA_FRAME_SCALE = 1.25;
   var R = 10.5 * PLANET_SCALE;
@@ -34929,11 +34931,11 @@ void main() {
     });
     else stopMusicLoop();
   });
-  var renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  var renderer = new WebGLRenderer({ canvas, antialias: !MOBILE_GPU_PROFILE, alpha: true, powerPreference: "high-performance" });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, MOBILE_GPU_PROFILE ? 1.25 : 2));
   renderer.setSize(W, H, false);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFSoftShadowMap;
+  renderer.shadowMap.enabled = !MOBILE_GPU_PROFILE;
+  renderer.shadowMap.type = MOBILE_GPU_PROFILE ? BasicShadowMap : PCFSoftShadowMap;
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.38;
@@ -35010,14 +35012,14 @@ void main() {
   groundTexture.wrapS = groundTexture.wrapT = RepeatWrapping;
   groundTexture.repeat.set(2.35, 1.88);
   groundTexture.offset.set(0.137, 0.083);
-  groundTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  groundTexture.anisotropy = MOBILE_GPU_PROFILE ? 2 : renderer.capabilities.getMaxAnisotropy();
   groundTexture.magFilter = NearestFilter;
   groundTexture.minFilter = LinearMipmapLinearFilter;
   var referenceEarthTexture = new TextureLoader().load("assets/reference-earth-wall-v1.png");
   referenceEarthTexture.colorSpace = SRGBColorSpace;
   referenceEarthTexture.wrapS = referenceEarthTexture.wrapT = RepeatWrapping;
   referenceEarthTexture.repeat.set(2.8, 1.45);
-  referenceEarthTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  referenceEarthTexture.anisotropy = MOBILE_GPU_PROFILE ? 2 : renderer.capabilities.getMaxAnisotropy();
   referenceEarthTexture.minFilter = LinearMipmapLinearFilter;
   referenceEarthTexture.magFilter = LinearFilter;
   var globeMat = new MeshPhysicalMaterial({ color: 12443547, map: groundTexture, bumpMap: groundTexture, bumpScale: 0.052, roughness: 0.94, metalness: 0, clearcoat: 0.02, clearcoatRoughness: 0.92 });
@@ -35047,12 +35049,12 @@ void main() {
   globe.rotation.x = 0.28;
   globe.receiveShadow = true;
   world.add(globe);
-  var groundDetailTexture = groundTexture.clone();
-  groundDetailTexture.needsUpdate = true;
+  var groundDetailTexture = new TextureLoader().load("assets/mossy-globe-ground-v1.png");
+  groundDetailTexture.colorSpace = SRGBColorSpace;
   groundDetailTexture.wrapS = groundDetailTexture.wrapT = RepeatWrapping;
   groundDetailTexture.repeat.set(4.6, 3.4);
   groundDetailTexture.offset.set(0.271, 0.193);
-  groundDetailTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  groundDetailTexture.anisotropy = MOBILE_GPU_PROFILE ? 2 : renderer.capabilities.getMaxAnisotropy();
   groundDetailTexture.minFilter = LinearMipmapLinearFilter;
   groundDetailTexture.magFilter = LinearFilter;
   groundDetailMaterial = new MeshPhysicalMaterial({ color: 12180875, map: groundDetailTexture, bumpMap: groundDetailTexture, bumpScale: 0.034, roughness: 0.92, transparent: true, opacity: 0.72, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
@@ -35067,15 +35069,14 @@ void main() {
     t.colorSpace = SRGBColorSpace;
     t.wrapS = t.wrapT = RepeatWrapping;
     t.repeat.set(repeatX, repeatY);
-    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    t.anisotropy = MOBILE_GPU_PROFILE ? 2 : renderer.capabilities.getMaxAnisotropy();
     return t;
   }
   var barkTexture = loadSurfaceTexture("assets/jungle-bark-v2.png", 2, 5);
   var leafTexture = loadSurfaceTexture("assets/jungle-foliage-v2.png", 3, 3);
-  var leafTexture2 = leafTexture.clone();
+  var leafTexture2 = loadSurfaceTexture("assets/jungle-foliage-v2.png", 3, 3);
   var rockTexture = loadSurfaceTexture("assets/jungle-rock-v2.png", 2.5, 2.5);
   var dirtTexture = loadSurfaceTexture("assets/jungle-dirt-v2.png", 2, 2);
-  leafTexture2.needsUpdate = true;
   var brown = new MeshPhysicalMaterial({ color: 12086065, map: barkTexture, bumpMap: barkTexture, bumpScale: 0.045, roughness: 0.9, clearcoat: 0.04, clearcoatRoughness: 0.85 });
   var bark = new MeshPhysicalMaterial({ color: 11099179, map: barkTexture, bumpMap: barkTexture, bumpScale: 0.065, roughness: 0.94, clearcoat: 0.025, clearcoatRoughness: 0.9 });
   var leaf = new MeshPhysicalMaterial({ color: 8825133, map: leafTexture, bumpMap: leafTexture, bumpScale: 0.018, roughness: 0.72, clearcoat: 0.16, clearcoatRoughness: 0.66, side: DoubleSide });
@@ -36257,7 +36258,7 @@ void main() {
   var enableBlenderHero = heroChoice === "blender" || heroChoice === "sculpt";
   var authoredHeroAsset = heroChoice === "sculpt" ? "assets/hero/banana-planet-hero-sculpt-candidate.glb?v=2" : "assets/hero/banana-planet-hero.glb?v=14";
   var proceduralHeroVisuals = apeModel.children.filter((c) => ![stunBirds, dizzyStars, dizzySpirals].includes(c));
-  new GLTFLoader().load(authoredHeroAsset, (gltf) => {
+  if (enableBlenderHero) new GLTFLoader().load(authoredHeroAsset, (gltf) => {
     authoredHero = gltf.scene;
     authoredHero.name = "BananaPlanetHero";
     authoredHero.scale.setScalar(heroChoice === "sculpt" ? 0.27 : 0.44);
@@ -36312,6 +36313,10 @@ void main() {
     console.warn("Blender hero fallback active", err);
     document.documentElement.dataset.heroLoad = "fallback";
   });
+  else {
+    document.documentElement.dataset.heroAsset = "procedural-stable";
+    document.documentElement.dataset.heroLoad = "skipped-mobile-safe";
+  }
   var authoredDeltaEuler = new Euler();
   var authoredDeltaQuat = new Quaternion();
   function setAuthoredBoneDelta(name, x = 0, y = 0, z = 0) {
@@ -38142,11 +38147,8 @@ void main() {
     if (pausedByMenu) running = false;
     else if (start.hidden && !knockedOut) running = true;
   });
-  if (sessionStorage.getItem("apeAutoStart") === "1") {
-    sessionStorage.removeItem("apeAutoStart");
-    start.hidden = true;
-    running = true;
-  }
+  sessionStorage.removeItem("apeAutoStart");
+  document.documentElement.dataset.mobileProfile = MOBILE_GPU_PROFILE ? "safe" : "full";
   addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase(), qa = new URLSearchParams(location.search).has("qa");
     if (k === "r") location.reload();
