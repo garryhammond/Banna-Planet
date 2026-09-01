@@ -139,7 +139,8 @@ function makeGroundTexture(){
   const flowerColors=['#f5c64f','#ef8950','#dc79a2','#f4e5bd'];for(let i=0;i<130;i++){q.fillStyle=flowerColors[i%flowerColors.length];q.beginPath();q.arc(rand()*W,rand()*H,1.5+rand()*2,0,Math.PI*2);q.fill();}
   q.globalAlpha=1;const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=THREE.RepeatWrapping;tex.wrapT=THREE.ClampToEdgeWrapping;tex.repeat.set(1,1);tex.anisotropy=renderer.capabilities.getMaxAnisotropy();return tex;
 }
-const groundTexture=new THREE.TextureLoader().load('assets/mossy-globe-ground-v1.png');groundTexture.colorSpace=THREE.SRGBColorSpace;groundTexture.wrapS=groundTexture.wrapT=THREE.RepeatWrapping;groundTexture.repeat.set(1.72,1.38);groundTexture.offset.set(.137,.083);groundTexture.anisotropy=renderer.capabilities.getMaxAnisotropy();groundTexture.magFilter=THREE.LinearFilter;groundTexture.minFilter=THREE.LinearMipmapLinearFilter;
+const groundTexture=new THREE.TextureLoader().load('assets/mossy-globe-ground-v1.png');groundTexture.colorSpace=THREE.SRGBColorSpace;groundTexture.wrapS=groundTexture.wrapT=THREE.RepeatWrapping;groundTexture.repeat.set(2.35,1.88);groundTexture.offset.set(.137,.083);groundTexture.anisotropy=renderer.capabilities.getMaxAnisotropy();groundTexture.magFilter=THREE.NearestFilter;groundTexture.minFilter=THREE.LinearMipmapLinearFilter;
+const referenceEarthTexture=new THREE.TextureLoader().load('assets/reference-earth-wall-v1.png');referenceEarthTexture.colorSpace=THREE.SRGBColorSpace;referenceEarthTexture.wrapS=referenceEarthTexture.wrapT=THREE.RepeatWrapping;referenceEarthTexture.repeat.set(2.8,1.45);referenceEarthTexture.anisotropy=renderer.capabilities.getMaxAnisotropy();referenceEarthTexture.minFilter=THREE.LinearMipmapLinearFilter;referenceEarthTexture.magFilter=THREE.LinearFilter;
 const globeMat = new THREE.MeshPhysicalMaterial({color:0xbddf9b,map:groundTexture,bumpMap:groundTexture,bumpScale:.052,roughness:.94,metalness:0,clearcoat:.02,clearcoatRoughness:.92});
 const HOLE_NORMALS=Array.from({length:5},(_,i)=>{const lat=-.42+i*.21,lon=1.05+i*1.17;return new THREE.Vector3(Math.cos(lat)*Math.sin(lon),Math.sin(lat),Math.cos(lat)*Math.cos(lon)).normalize();});
 function cutGroundOpenings(geo){const src=geo.index.array,pos=geo.attributes.position,kept=[],v=new THREE.Vector3();for(let i=0;i<src.length;i+=3){v.set(0,0,0);for(let j=0;j<3;j++){const k=src[i+j];v.x+=pos.getX(k);v.y+=pos.getY(k);v.z+=pos.getZ(k);}v.normalize().applyAxisAngle(new THREE.Vector3(1,0,0),.28);const cut=HOLE_NORMALS.some(n=>v.angleTo(n)<.029);if(!cut)kept.push(src[i],src[i+1],src[i+2]);}geo.setIndex(kept);geo.computeVertexNormals();return geo;}
@@ -328,8 +329,10 @@ for(let i=0;i<MAIN_WORLD_PROP_COUNT;i++){
   const n=normalAt(lat,lon), k=i%15;
   if(n.angleTo(CAMERA_CENTER_NORMAL)<.15) foliage(n,.55);
   else if(k===0){if(i%4===0)palm(n,.66+(i%4)*.045);else tree(n, .58+(i%5)*.05);}
-  else if(k===4) rock(n,.42+(i%4)*.06);
-  else if(k===8) log(n,.48+(i%3)*.07);
+  // Keep the running lane readable: only half of the old rock/log placements
+  // become solid trip obstacles. The remaining coverage stays soft foliage.
+  else if(k===4&&i%45===4) rock(n,.42+(i%4)*.06);
+  else if(k===8&&i%45===23) log(n,.48+(i%3)*.07);
   else foliage(n,.55+(i%3)*.08);
 }
 const EXTRA_PALM_COUNT=18;
@@ -350,21 +353,19 @@ const holeSoilTexture=makeHoleSoilTexture();
 const holeSoilAlpha=makeHoleSoilAlpha();
 const pitDepthTexture=makePitDepthTexture();
 function roundedHoleShape(radius,aspect,phase=0,variance=.055){const pts=[];for(let i=0;i<14;i++){const a=i/14*Math.PI*2,r=radius*(1+variance*Math.sin(a*3+phase)+variance*.58*Math.cos(a*5-phase*.7));pts.push(new THREE.Vector2(Math.cos(a)*r,Math.sin(a)*r*aspect));}const sh=new THREE.Shape(),first=pts[0],last=pts[pts.length-1];sh.moveTo((last.x+first.x)/2,(last.y+first.y)/2);for(let i=0;i<pts.length;i++){const p=pts[i],next=pts[(i+1)%pts.length];sh.quadraticCurveTo(p.x,p.y,(p.x+next.x)/2,(p.y+next.y)/2);}sh.closePath();return sh;}
-function irregularPitWall(){const seg=28,rings=3,pos=[],uv=[],idx=[];for(let j=0;j<rings;j++){const y=.045-j*.095,base=[.44,.37,.27][j];for(let i=0;i<seg;i++){const a=i/seg*Math.PI*2,rough=1+.055*Math.sin(a*3.1+j*.8)+.04*Math.cos(a*6.2-j),r=base*rough;pos.push(Math.cos(a)*r,y,Math.sin(a)*r*.72);uv.push(i/seg,j/(rings-1));}}for(let j=0;j<rings-1;j++)for(let i=0;i<seg;i++){const n=(i+1)%seg,a=j*seg+i,b=j*seg+n,c=(j+1)*seg+n,d=(j+1)*seg+i;idx.push(a,d,b,b,d,c);}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.setIndex(idx);geo.computeVertexNormals();return geo;}
+function irregularPitWall(){const seg=40,rings=4,pos=[],uv=[],idx=[];for(let j=0;j<rings;j++){const y=-.012-j*.085,base=[.305,.27,.22,.15][j];for(let i=0;i<seg;i++){const a=i/seg*Math.PI*2,rough=1+.06*Math.sin(a*3.1+j*.8)+.035*Math.cos(a*6.2-j),r=base*rough;pos.push(Math.cos(a)*r,y,Math.sin(a)*r*.76);uv.push(i/seg,j/(rings-1)*1.6);}}for(let j=0;j<rings-1;j++)for(let i=0;i<seg;i++){const n=(i+1)%seg,a=j*seg+i,b=j*seg+n,c=(j+1)*seg+n,d=(j+1)*seg+i;idx.push(a,d,b,b,d,c);}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.setIndex(idx);geo.computeVertexNormals();return geo;}
 function groundHole(n,s=1){
-  const g=new THREE.Group(),pitMat=new THREE.MeshBasicMaterial({map:pitDepthTexture,color:0xffffff,side:THREE.DoubleSide}),soilMat=new THREE.MeshStandardMaterial({color:0xa17244,map:holeSoilTexture,bumpMap:holeSoilTexture,bumpScale:.07,roughness:1});
-  const openingShape=roundedHoleShape(.3,.72,.8,.075);
-  const pit=new THREE.Mesh(new THREE.ShapeGeometry(openingShape),pitMat);pit.rotation.x=-Math.PI/2;pit.position.y=-.17;g.add(pit);
-  const backstopMat=new THREE.MeshBasicMaterial({color:0x010100,side:THREE.DoubleSide}),backstop=new THREE.Mesh(new THREE.ShapeGeometry(roundedHoleShape(.57,.78,.3,.04)),backstopMat);backstop.rotation.x=-Math.PI/2;backstop.position.y=-.27;g.add(backstop);
-  const bankShape=roundedHoleShape(.86,.74,2.1,.13);
-  bankShape.holes.push(roundedHoleShape(.445,.72,.8,.075));
-  const dirtBank=new THREE.Mesh(new THREE.ShapeGeometry(bankShape),soilMat);dirtBank.rotation.x=-Math.PI/2;dirtBank.position.y=.024;dirtBank.receiveShadow=true;g.add(dirtBank);
-  const wallMat=new THREE.MeshStandardMaterial({color:0x4f2f1b,map:holeSoilTexture,bumpMap:holeSoilTexture,bumpScale:.085,roughness:1,side:THREE.DoubleSide}),wall=new THREE.Mesh(irregularPitWall(),wallMat);wall.receiveShadow=true;g.add(wall);
-  const grainMat=new THREE.MeshStandardMaterial({color:0x382318,roughness:1}),grainGeo=new THREE.DodecahedronGeometry(.018,0),grains=new THREE.InstancedMesh(grainGeo,grainMat,18),grainDummy=new THREE.Object3D();for(let i=0;i<18;i++){const a=i*2.399963+.2,r=.51+(i%5)*.048;grainDummy.position.set(Math.cos(a)*r,.043,Math.sin(a)*r*.74);grainDummy.rotation.set(i*.31,i*.77,0);grainDummy.scale.set(1+(i%3)*.3,.32,.7+(i%2)*.25);grainDummy.updateMatrix();grains.setMatrixAt(i,grainDummy.matrix);}grains.instanceMatrix.needsUpdate=true;g.add(grains);
-  for(let i=0;i<7;i++){const a=[.38,1.12,1.74,2.68,3.56,4.42,5.35][i],r=.59+(i%3)*.08,clod=new THREE.Mesh(new THREE.SphereGeometry(.045+(i%3)*.012,10,7),i===1||i===3||i===6?rockMat:soilMat);clod.position.set(Math.cos(a)*r,.056,Math.sin(a)*r*.72);clod.scale.set(1.35,.55,.85);clod.rotation.y=-a+i*.31;clod.castShadow=true;g.add(clod);}
-  const rootMat=new THREE.MeshStandardMaterial({color:0x51301c,roughness:1});
-  for(const a of [.34,3.62]){const root=new THREE.Mesh(new THREE.CylinderGeometry(.018,.028,.34,7),rootMat);root.rotation.z=Math.PI/2;root.rotation.y=-a;root.position.set(Math.cos(a)*.5,.058,Math.sin(a)*.37);g.add(root);}
-  const edgeGrassMat=new THREE.MeshStandardMaterial({color:0x6b9437,roughness:.92});for(let i=0;i<6;i++){const a=.7+i*1.73,r=.72+(i%2)*.04;for(let j=0;j<3;j++){const blade=new THREE.Mesh(new THREE.ConeGeometry(.011,.09+j*.018,5),edgeGrassMat);blade.position.set(Math.cos(a)*r+(j-1)*.018,.071,Math.sin(a)*r*.74);blade.rotation.z=(j-1)*.24;blade.rotation.y=-a;g.add(blade);}}
+  const g=new THREE.Group(),pitMat=new THREE.MeshBasicMaterial({map:pitDepthTexture,color:0xffffff,side:THREE.DoubleSide});
+  const coverShape=roundedHoleShape(.64,.86,.18,.035),coverOpening=roundedHoleShape(.295,.72,.8,.075);coverShape.holes.push(coverOpening);
+  const coverMat=new THREE.MeshStandardMaterial({color:0xb4d990,map:groundTexture,bumpMap:groundTexture,bumpScale:.045,roughness:.96,side:THREE.DoubleSide});
+  const cover=new THREE.Mesh(new THREE.ShapeGeometry(coverShape,32),coverMat);cover.rotation.x=-Math.PI/2;cover.position.y=.006;cover.receiveShadow=true;g.add(cover);
+  const linerMat=new THREE.MeshStandardMaterial({color:0x382216,map:referenceEarthTexture,bumpMap:referenceEarthTexture,bumpScale:.09,roughness:1,side:THREE.DoubleSide});
+  const liner=new THREE.Mesh(new THREE.CylinderGeometry(.62,.22,.36,48,4,true),linerMat);liner.position.y=-.185;liner.receiveShadow=true;g.add(liner);
+  const openingShape=roundedHoleShape(.145,.72,.8,.075);
+  const pit=new THREE.Mesh(new THREE.ShapeGeometry(openingShape),pitMat);pit.rotation.x=-Math.PI/2;pit.position.y=-.27;g.add(pit);
+  const backstopMat=new THREE.MeshBasicMaterial({color:0x010100,side:THREE.DoubleSide}),backstop=new THREE.Mesh(new THREE.ShapeGeometry(roundedHoleShape(.21,.78,.3,.04)),backstopMat);backstop.rotation.x=-Math.PI/2;backstop.position.y=-.31;g.add(backstop);
+  const wallMat=new THREE.MeshStandardMaterial({color:0x8d6a47,map:referenceEarthTexture,bumpMap:referenceEarthTexture,bumpScale:.12,roughness:1,side:THREE.DoubleSide}),wall=new THREE.Mesh(irregularPitWall(),wallMat);wall.receiveShadow=true;g.add(wall);
+  for(let i=0;i<3;i++){const a=[.9,2.9,5.1][i],r=.54+(i%2)*.08,stone=new THREE.Mesh(new THREE.SphereGeometry(.04+i*.009,10,7),rockMat);stone.position.set(Math.cos(a)*r,.042,Math.sin(a)*r*.72);stone.scale.set(1.35,.52,.85);stone.rotation.y=-a+i*.31;stone.castShadow=true;g.add(stone);}
   for(let i=props.length-1;i>=0;i--){if(n.angleTo(props[i].n)<.065){world.remove(props[i].group);props.splice(i,1);}}
   g.scale.setScalar(s);plant(g,n,.002);props.push({kind:'hole',n:n.clone(),radius:.36*s,group:g});
 }
@@ -470,6 +471,7 @@ const helmetShell=new THREE.Mesh(new THREE.SphereGeometry(.33,28,16,0,Math.PI*2,
 const MAX_HEALTH=5,MAX_LIVES=3,BASE_LEVEL_GOAL=50;
 let apeN=CAMERA_CENTER_NORMAL.clone(), targetN=apeN.clone(), runSpeed=0, gestureDrive=0, recognize=0, score=0, health=MAX_HEALTH,lives=MAX_LIVES,helmetEquipped=false,level=1,levelGoal=BASE_LEVEL_GOAL,levelCleared=false,running=false;
 let trip=0, tripPhase='run', facing=1, lastTarget=new THREE.Vector3(),reversalFall=false,angryTimer=0,angryStompPlayed=false,holeFallTimer=0,holeRespawnPoint=null,holeFallCenter=null,holeGameOverPending=false;
+let jumpTimer=0,jumpObstacle=null;
 let tripObstacle=null, obstacleGrace=0,avoidObstacle=null,avoidTimer=0,avoidSide=1,stuckTime=0,lastGap=0;
 let gaitPhase=0;
 let hitTimer=0, startleTimer=0, stunTimer=0,logDizzyTimer=0, beeWaveTimer=0, pendingDamageTrip=false, knockedOut=false;
@@ -550,7 +552,7 @@ installTreeHives();
 // enough frequency to keep each flight meaningful.
 const DROP_WEIGHTS=[['banana',.40],['coconutDrink',.09],['star',.05],['gem',.09],['heart',.05],['helmet',.02],['rock',.11],['log',.08],['bomb',.06],['hive',.05]];
 document.documentElement.dataset.goodDropChance='0.70';
-const SMALL_PLANE_MODEL_SCALE=.42,CARGO_PLANE_MODEL_SCALE=.62,SMALL_PLANE_ROUTE_HEIGHT=4.2,CARGO_PLANE_ROUTE_HEIGHT=6.5,CARGO_PLANE_SKY_LIFT=9;
+const SMALL_PLANE_MODEL_SCALE=.42,CARGO_PLANE_MODEL_SCALE=.62,SMALL_PLANE_ROUTE_HEIGHT=4.2,CARGO_PLANE_ROUTE_HEIGHT=6.5,CARGO_PLANE_SKY_LIFT=0;
 Object.assign(document.documentElement.dataset,{smallPlaneScale:SMALL_PLANE_MODEL_SCALE.toFixed(2),cargoPlaneScale:CARGO_PLANE_MODEL_SCALE.toFixed(2),smallPlaneRouteHeight:SMALL_PLANE_ROUTE_HEIGHT.toFixed(2),cargoPlaneRouteHeight:CARGO_PLANE_ROUTE_HEIGHT.toFixed(2),cargoHeightRatio:(CARGO_PLANE_ROUTE_HEIGHT/SMALL_PLANE_ROUTE_HEIGHT).toFixed(2)});
 function pickDropType(){let r=Math.random();for(const [type,weight] of DROP_WEIGHTS){if(r<weight)return type;r-=weight;}return DROP_WEIGHTS[0][0];}
 function makeCargoPlane(){
@@ -607,11 +609,12 @@ function releaseDrop(type,n,startHeight=3.15,startOffset=null){
   playCue('fall');if(type==='hive')spawnBees(drop);
 }
 function finishAirDrop(drop){stopFallWhistle(drop);if(drop.fallTrail){world.remove(drop.fallTrail);drop.fallTrail.geometry.dispose();drop.fallTrail.material.dispose();drop.fallTrail=null;}}
+function visibleTreeCoconut(tree){let nut=null;tree?.group?.traverse(o=>{if(!nut&&o.name?.startsWith('Coconut_')&&o.visible)nut=o;});return nut;}
 function dropCoconut(tree){
-  const looseNut=tree.group.getObjectByProperty('name','Coconut_0')?.parent?.children.find(o=>o.name.startsWith('Coconut_')&&o.visible);if(looseNut)looseNut.visible=false;
+  const looseNut=visibleTreeCoconut(tree);if(!looseNut)return false;looseNut.visible=false;
   const g=new THREE.Group(),shell=new THREE.Mesh(new THREE.SphereGeometry(.16,14,10),new THREE.MeshStandardMaterial({color:0x75401f,roughness:.94}));shell.scale.set(.82,1.08,.82);shell.castShadow=true;g.add(shell);
   for(let i=0;i<3;i++){const eye=new THREE.Mesh(new THREE.SphereGeometry(.018,7,5),dark),a=i/3*Math.PI*2;eye.position.set(Math.cos(a)*.055,.12,Math.sin(a)*.055);g.add(eye);}
-  const n=offsetDropPoint(tree.n,.018),drop={type:'coconut',n,g,h:.78,vy:.2,gravity:.46,landed:false,groundTime:0,triggered:false};world.add(g);drops.push(drop);startFallWhistle(drop);document.documentElement.dataset.treeDrop='coconut';toast.textContent='COCONUT SHAKEN LOOSE!';setTimeout(()=>{if(!knockedOut&&toast.textContent==='COCONUT SHAKEN LOOSE!')toast.textContent='';},900);playCue('coconut');
+  const n=offsetDropPoint(tree.n,.055),drop={type:'coconut',n,g,h:.78,vy:.2,gravity:.46,landed:false,groundTime:0,triggered:false,treeMagnet:true};world.add(g);drops.push(drop);startFallWhistle(drop);document.documentElement.dataset.treeDrop='coconut';toast.textContent='COCONUT SHAKEN LOOSE!';setTimeout(()=>{if(!knockedOut&&toast.textContent==='COCONUT SHAKEN LOOSE!')toast.textContent='';},900);playCue('coconut');return true;
 }
 function makeGem(){const g=new THREE.Group(),mat=new THREE.MeshPhysicalMaterial({color:0x35c8ff,emissive:0x075f9b,emissiveIntensity:.75,metalness:.08,roughness:.18,clearcoat:1,clearcoatRoughness:.12}),gem=new THREE.Mesh(new THREE.OctahedronGeometry(.18,0),mat);gem.scale.set(.78,1.25,.78);gem.castShadow=true;g.add(gem);g.add(new THREE.PointLight(0x39cfff,1.2,1.5));return g;}
 function makeHeart(){const g=new THREE.Group(),mat=new THREE.MeshPhysicalMaterial({color:0xff4052,emissive:0x7d0716,emissiveIntensity:.45,roughness:.35,clearcoat:.75});for(const x of [-.07,.07]){const lobe=new THREE.Mesh(new THREE.SphereGeometry(.105,14,10),mat);lobe.position.set(x,.065,0);lobe.castShadow=true;g.add(lobe);}const tip=new THREE.Mesh(new THREE.ConeGeometry(.145,.24,16),mat);tip.position.y=-.09;tip.rotation.z=Math.PI;g.add(tip);g.add(new THREE.PointLight(0xff5266,1,1.3));return g;}
@@ -619,7 +622,7 @@ function makeHelmet(){const g=new THREE.Group(),mat=helmetMat.clone(),shell=new 
 function makeCoconutDrink(){const g=new THREE.Group(),shellMat=new THREE.MeshStandardMaterial({color:0x7b441f,roughness:.92}),milkMat=new THREE.MeshPhysicalMaterial({color:0xf5e4b7,roughness:.38,clearcoat:.45}),cup=new THREE.Mesh(new THREE.SphereGeometry(.17,16,12,0,Math.PI*2,.42,Math.PI*.58),shellMat);cup.scale.y=.9;cup.castShadow=true;g.add(cup);const rim=new THREE.Mesh(new THREE.TorusGeometry(.13,.018,7,18),milkMat);rim.rotation.x=Math.PI/2;rim.position.y=.09;g.add(rim);const straw=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.32,7),new THREE.MeshStandardMaterial({color:0x3bc4dd,roughness:.48}));straw.position.set(.055,.23,0);straw.rotation.z=-.2;g.add(straw);const umbrella=new THREE.Mesh(new THREE.ConeGeometry(.12,.075,12),new THREE.MeshStandardMaterial({color:0xff7651,roughness:.62}));umbrella.position.set(-.05,.25,0);umbrella.rotation.z=.18;g.add(umbrella);return g;}
 function makeStar(){const shape=new THREE.Shape();for(let i=0;i<10;i++){const a=Math.PI/2+i*Math.PI/5,r=i%2?.075:.18,x=Math.cos(a)*r,y=Math.sin(a)*r;i?shape.lineTo(x,y):shape.moveTo(x,y);}shape.closePath();const g=new THREE.Group(),mat=new THREE.MeshPhysicalMaterial({color:0xffc526,emissive:0xa75900,emissiveIntensity:.85,metalness:.28,roughness:.22,clearcoat:1}),star=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.07,bevelEnabled:true,bevelSegments:2,bevelSize:.025,bevelThickness:.022}),mat);star.position.z=-.035;star.castShadow=true;g.add(star);g.add(new THREE.PointLight(0xffd451,1.8,2));return g;}
 function makeDropModel(type){return type==='banana'?makeBanana():type==='coconutDrink'?makeCoconutDrink():type==='star'?makeStar():type==='gem'?makeGem():type==='heart'?makeHeart():type==='helmet'?makeHelmet():type==='bomb'?makeBomb():type==='rock'?makeFallingRock():type==='log'?makeFallingLog():makeHive();}
-function dropTreeReward(tree,type){const g=type==='heart'?makeHeart():type==='coconutDrink'?makeCoconutDrink():type==='star'?makeStar():makeGem(),n=offsetDropPoint(tree.n,.018),drop={type,n,g,h:.78,vy:.14,landed:false,groundTime:0,triggered:false};world.add(g);drops.push(drop);document.documentElement.dataset.treeDrop=type;playCue('fall');}
+function dropTreeReward(tree,type){const g=type==='heart'?makeHeart():type==='coconutDrink'?makeCoconutDrink():type==='star'?makeStar():makeGem(),n=offsetDropPoint(tree.n,.055),drop={type,n,g,h:.78,vy:.14,landed:false,groundTime:0,triggered:false,treeMagnet:true};world.add(g);drops.push(drop);document.documentElement.dataset.treeDrop=type;playCue('fall');}
 function dropTreeHive(entry){
   const worldPos=new THREE.Vector3();entry.g.getWorldPosition(worldPos);const sideSign=Math.sign(entry.g.position.x)||1,sideTangent=new THREE.Vector3().crossVectors(UP,entry.tree.n);if(sideTangent.lengthSq()<.001)sideTangent.set(1,0,0);sideTangent.normalize().multiplyScalar(sideSign);
   const landingN=entry.tree.n.clone().addScaledVector(sideTangent,.055).normalize();entry.tree.group.remove(entry.g);entry.g.position.set(0,0,0);entry.g.rotation.set(0,0,0);entry.g.scale.setScalar(1);
@@ -646,7 +649,7 @@ function spawnDrop(forcedType){
   const tangent=tangentA.multiplyScalar(Math.cos(flightAngle)).addScaledVector(tangentB,Math.sin(flightAngle)).normalize();
   const planeUp=n.clone(),planeSide=new THREE.Vector3().crossVectors(tangent,planeUp).normalize();
   const orientation=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(tangent,planeUp,planeSide));
-  const g=makeCargoPlane();world.add(g);planes.push({g,type,n,tangent,orientation,progress:0,released:false});
+  const g=makeCargoPlane();world.add(g);planes.push({g,type,n,tangent,orientation,progress:0,released:false,tracksApe:!goodCargo});
 }
 function spawnCargoBurst(){
   const good=['banana','coconutDrink','gem','star'],hazards=['rock','log','bomb'],types=[good[Math.floor(Math.random()*good.length)],Math.random()<.58?good[Math.floor(Math.random()*good.length)]:hazards[Math.floor(Math.random()*hazards.length)],good[Math.floor(Math.random()*good.length)]];
@@ -712,7 +715,7 @@ function updateShakeDynamics(dt,t){
         }}}}
   }
   mildShakeCharge=intensity>.0045?mildShakeCharge+dt:Math.max(0,mildShakeCharge-dt*.65);
-  if(mildShakeCharge>.24){mildShakeCharge=0;if(coconutCooldown<=0&&Math.random()<.72){const trees=props.filter(p=>p.kind==='tree'),palms=trees.filter(p=>p.style==='palm'),visiblePalms=palms.filter(p=>p.n.clone().applyQuaternion(world.quaternion).angleTo(CAMERA_CENTER_NORMAL)<.75),hostPool=visiblePalms.length?visiblePalms:palms,host=hostPool[Math.floor(Math.random()*hostPool.length)]||trees[Math.floor(Math.random()*trees.length)],roll=Math.random(),forceFirstCoconut=treeShakeDrops===0;treeShakeDrops++;if(host&&(forceFirstCoconut||roll<.64))dropCoconut(host);else if(lives<MAX_LIVES&&roll<.72)dropTreeReward(host,'heart');else if(roll<.84)dropTreeReward(host,'gem');else if(roll<.94)dropTreeReward(host,'coconutDrink');else dropTreeReward(host,'star');coconutCooldown=4+Math.random()*2.5;}}
+  if(mildShakeCharge>.24){mildShakeCharge=0;if(coconutCooldown<=0&&Math.random()<.6){const trees=props.filter(p=>p.kind==='tree'),palms=trees.filter(p=>p.style==='palm'),coconutPalms=palms.filter(visibleTreeCoconut),visibleCoconutPalms=coconutPalms.filter(p=>p.n.clone().applyQuaternion(world.quaternion).angleTo(CAMERA_CENTER_NORMAL)<.75),coconutPool=visibleCoconutPalms.length?visibleCoconutPalms:coconutPalms,visiblePalms=palms.filter(p=>p.n.clone().applyQuaternion(world.quaternion).angleTo(CAMERA_CENTER_NORMAL)<.75),hostPool=visiblePalms.length?visiblePalms:palms,host=hostPool[Math.floor(Math.random()*hostPool.length)]||trees[Math.floor(Math.random()*trees.length)],coconutHost=coconutPool[Math.floor(Math.random()*coconutPool.length)],roll=Math.random(),forceFirstCoconut=treeShakeDrops===0&&!!coconutHost;treeShakeDrops++;if(coconutHost&&(forceFirstCoconut||roll<.5))dropCoconut(coconutHost);else if(lives<MAX_LIVES&&roll<.72)dropTreeReward(host,'heart');else if(roll<.84)dropTreeReward(host,'gem');else if(roll<.94)dropTreeReward(host,'coconutDrink');else dropTreeReward(host,'star');coconutCooldown=6+Math.random()*3;}}
   aggressiveShakeTime=intensity>.022?aggressiveShakeTime+dt:Math.max(0,aggressiveShakeTime-dt*.7);
   const warning=aggressiveShakeTime>.22;
   for(const h of treeHives){if(h.dropped)continue;h.cooldown=Math.max(0,h.cooldown-dt);const wobble=warning?Math.sin(t*17)*Math.min(.2,aggressiveShakeTime*.22):0;h.g.rotation.set(h.baseRotation.x,h.baseRotation.y,h.baseRotation.z+wobble);}
@@ -750,7 +753,13 @@ function checkLevelClear(){
   if(levelCleared||score<levelGoal)return;levelCleared=true;running=false;toast.textContent='LEVEL CLEARED!';playCue('catch');
   setTimeout(()=>{cardTitle.textContent=`Level ${level} Cleared!`;cardText.textContent=`You reached ${score} points. Next goal: ${levelGoal+25}.`;playButton.textContent='NEXT LEVEL';start.hidden=false;},650);
 }
-function tripApe(obstacle=null,costsHealth=true){if(obstacle&&obstacleGrace>0)return;if(trip<=0){const result=costsHealth?loseHealth(1):'hurt';if(result==='gameover'||result==='blocked')return;playCue('trip');if(costsHealth)setTimeout(()=>monkeyVocal('hurt'),75);trip=2.15;tripPhase='stumble';tripObstacle=obstacle;toast.textContent=result==='life-lost'?'LOST A LIFE!':'OOF!';setTimeout(()=>{if(!knockedOut)toast.textContent='';},700);}}
+function tripApe(obstacle=null,costsHealth=true){if(obstacle?.kind==='tree'){avoidObstacle=obstacle;avoidTimer=Math.max(avoidTimer,1.25);document.documentElement.dataset.treeContact='steer-only';return;}if(obstacle&&obstacleGrace>0)return;if(trip<=0){const result=costsHealth?loseHealth(1):'hurt';if(result==='gameover'||result==='blocked')return;playCue('trip');if(costsHealth)setTimeout(()=>monkeyVocal('hurt'),75);trip=2.15;tripPhase='stumble';tripObstacle=obstacle;toast.textContent=result==='life-lost'?'LOST A LIFE!':'OOF!';setTimeout(()=>{if(!knockedOut)toast.textContent='';},700);}}
+function clearLowObstacle(obstacle){
+  // Most ordinary ground contacts become a playful auto-jump. A smaller
+  // random share still trips, so stumbling remains part of the game.
+  if(jumpTimer<=0&&Math.random()<.9){jumpTimer=.64;jumpObstacle=obstacle;tripObstacle=obstacle;obstacleGrace=1.05;tripPhase='jump';playCue('step');return true;}
+  tripApe(obstacle);return false;
+}
 function damageApe(){
   if(knockedOut||hitTimer>0)return;const result=loseHealth(1);if(result==='gameover'||result==='blocked')return;playCue('hit');setTimeout(()=>monkeyVocal('hurt'),65);
   hitTimer=.48;pendingDamageTrip=true;tripPhase='hit';toast.textContent=result==='life-lost'?'LOST A LIFE!':'WHACK!';setTimeout(()=>{if(!knockedOut)toast.textContent='';},650);
@@ -758,7 +767,7 @@ function damageApe(){
 function fallInHole(hole){
   if(knockedOut||holeFallTimer>0)return;playCue('whoa');lives=Math.max(0,lives-1);updateHUD();runSpeed=0;trip=0;tripPhase='hole-fall';holeFallCenter=hole.n.clone();apeN.copy(holeFallCenter);holeGameOverPending=lives<=0;
   const respawnAxis=new THREE.Vector3().crossVectors(targetN,UP);if(respawnAxis.lengthSq()<.001)respawnAxis.set(1,0,0);respawnAxis.normalize();
-  holeFallTimer=1.4;holeRespawnPoint=clearRecoveryPoint(targetN.clone().applyAxisAngle(respawnAxis,.08),targetN);toast.textContent='WHOA-A-A!';document.documentElement.dataset.lastHazard='hole';
+  holeFallTimer=1.4;holeRespawnPoint=clearRecoveryPoint(targetN.clone().applyAxisAngle(respawnAxis,.15),targetN);toast.textContent='WHOA-A-A!';document.documentElement.dataset.lastHazard='hole';
 }
 updateHUD();
 function useHelmet(){if(!helmetEquipped)return false;helmetEquipped=false;equippedHelmet.visible=false;playCue('bonk');toast.textContent='HELMET SAVE!';document.documentElement.dataset.helmet='used';setTimeout(()=>{if(!knockedOut&&toast.textContent==='HELMET SAVE!')toast.textContent='';},800);return true;}
@@ -830,7 +839,7 @@ function updateApe(dt,t){
         const d=apeN.angleTo(p.n), towardProp=tangentToward(apeN,p.n);
         if(d<.25&&desired.dot(towardProp)>.18){
           const clearance=propHitAngle(p);
-          if(d<clearance&&p.kind!=='tree'&&fastCatchup&&!(obstacleGrace>0&&p===tripObstacle)){apeN.copy(previous);runSpeed=0;tripApe(p);break;}
+          if(d<clearance&&p.kind!=='tree'&&fastCatchup&&!(obstacleGrace>0&&p===tripObstacle)){if(!clearLowObstacle(p)){apeN.copy(previous);runSpeed=0;}break;}
           const sideA=apeN.clone().cross(towardProp).normalize();
           const sign=sideA.dot(tangentToward(apeN,targetN).cross(apeN))>0?1:-1;
           moveDir.addScaledVector(sideA,sign*(p.kind==='tree'?1.7:.8)*Math.max(0,(.25-d)/.25));
@@ -848,23 +857,34 @@ function updateApe(dt,t){
           const hitRadius=propHitAngle(p);
           if(apeN.angleTo(p.n)<hitRadius&&!(obstacleGrace>0&&p===tripObstacle)){
             if(!fastCatchup){avoidObstacle=p;avoidTimer=1.15;apeN.copy(localDetour(previous,p,targetN,step*1.15));runSpeed*=.92;}
-            else {apeN.copy(previous);runSpeed=0;tripApe(p);}break;
+            else if(!clearLowObstacle(p)){apeN.copy(previous);runSpeed=0;}break;
           }
         }
         if(holeFallTimer>0){placeApe();return;}
         // Trees are absolute solid blockers, even if steering could not find clearance.
-        if(trip<=0)for(const p of props){if(p.kind==='tree'&&apeN.angleTo(p.n)<propHitAngle(p)){if(!fastCatchup){avoidObstacle=p;avoidTimer=1.25;apeN.copy(localDetour(previous,p,targetN,step*1.2));runSpeed*=.9;}else{apeN.copy(previous);runSpeed=0;tripApe(p);}break;}}
+        if(trip<=0)for(const p of props){if(p.kind==='tree'&&apeN.angleTo(p.n)<propHitAngle(p)){avoidObstacle=p;avoidTimer=1.25;apeN.copy(localDetour(previous,p,targetN,step*1.2));runSpeed*=.9;break;}}
         // A valid detour may be lateral, but never let avoidance run away from center.
         if(trip<=0&&avoidTimer<=0&&apeN.angleTo(targetN)>gap+.003){
           apeN.copy(previous).addScaledVector(desired,step).normalize();
-          for(const p of props){if(p.kind==='tree'&&apeN.angleTo(p.n)<propHitAngle(p)){if(!fastCatchup){avoidObstacle=p;avoidTimer=1.25;apeN.copy(localDetour(previous,p,targetN,step*1.2));runSpeed*=.9;}else{apeN.copy(previous);runSpeed=0;tripApe(p);}break;}}
+          for(const p of props){if(p.kind==='tree'&&apeN.angleTo(p.n)<propHitAngle(p)){avoidObstacle=p;avoidTimer=1.25;apeN.copy(localDetour(previous,p,targetN,step*1.2));runSpeed*=.9;break;}}
         }
       }
     }
   }
-  if(lastTarget.lengthSq()&&lastTarget.angleTo(targetN)>.42&&runSpeed>.12)tripApe();lastTarget.copy(targetN);
+  // A large player-directed turn is steering, not a collision. Aggressive
+  // reversal falls are handled separately by the shake system; keeping this
+  // old target-jump trip made harmless tree detours look like tree impacts.
+  lastTarget.copy(targetN);
   if(hitTimer>0||startleTimer>0||beeWaveTimer>0){/* preserve the distinct reaction pose set above */}
   else if(angryTimer>0){angryTimer-=dt;runSpeed=0;tripPhase='angry';const p=1-angryTimer/1.15;apeModel.rotation.x=-.1;apeModel.rotation.z=Math.sin(t*18)*.025;head.rotation.x=-.13;limbs.armL.rotation.x=-1.65;limbs.armR.rotation.x=-1.65;limbs.armL.lower.rotation.x=-1.05;limbs.armR.lower.rotation.x=-1.05;limbs.legL.rotation.x=0;limbs.legR.rotation.x=p<.48?-.45*Math.sin(p/0.48*Math.PI):0;if(!angryStompPlayed&&p>.52){angryStompPlayed=true;playCue('stomp');toast.textContent='HEY!';setTimeout(()=>{if(!knockedOut)toast.textContent='';},500);}if(angryTimer<=0){tripPhase='run';apeModel.rotation.set(0,apeModel.rotation.y,0);head.rotation.set(0,head.rotation.y,0);}}
+  else if(jumpTimer>0){
+    jumpTimer-=dt;const p=1-Math.max(0,jumpTimer)/.64,arc=Math.sin(p*Math.PI);
+    tripPhase='jump';apeModel.position.y=.18*arc;apeModel.rotation.x=-.12*arc;
+    limbs.armL.rotation.x=-.55-.45*arc;limbs.armR.rotation.x=-.55-.45*arc;
+    limbs.legL.rotation.x=.35*arc;limbs.legR.rotation.x=.35*arc;
+    limbs.legL.lower.rotation.x=.85*arc;limbs.legR.lower.rotation.x=.85*arc;
+    if(jumpTimer<=0){jumpObstacle=null;apeModel.position.y=0;apeModel.rotation.x=0;tripPhase='run';}
+  }
   else if(trip>0){trip-=dt;const elapsed=2.15-trip;
     if(elapsed<.28){const p=elapsed/.28;tripPhase='stumble';apeModel.rotation.x=p*.32;apeModel.rotation.z=facing*Math.sin(p*Math.PI)*(reversalFall?.16:.035);limbs.armL.rotation.x=-p*1.15;limbs.armR.rotation.x=-p*.9;limbs.armL.lower.rotation.x=-p*.55;limbs.armR.lower.rotation.x=-p*.7;limbs.legL.rotation.x=.34*p;limbs.legR.rotation.x=-.22*p;limbs.legL.lower.rotation.x=.8*p;limbs.legR.lower.rotation.x=.32*p;}
     else if(elapsed<.62){const p=(elapsed-.28)/.34;tripPhase='fall';apeModel.rotation.x=.32+p*1.02;apeModel.rotation.z=facing*(reversalFall?.12:.025)*(1-p);apeModel.position.y=.012*(1-p);limbs.armL.rotation.x=-1.55;limbs.armR.rotation.x=-1.42;limbs.armL.lower.rotation.x=-.25;limbs.armR.lower.rotation.x=-.18;limbs.legL.rotation.x=.46;limbs.legR.rotation.x=.22;limbs.legL.lower.rotation.x=1.05;limbs.legR.lower.rotation.x=.85;head.rotation.x=-.18;}
@@ -935,9 +955,14 @@ function frame(now){
     if(introZoomTimer>0){introZoomTimer=Math.max(0,introZoomTimer-dt);const p=1-introZoomTimer/2.2,cubic=1-Math.pow(1-p,3);cameraZoom=THREE.MathUtils.lerp(1,.14,cubic);applyCameraZoom();if(introZoomTimer<=0)document.documentElement.dataset.introZoom='complete';}
     if(!dragging){const kv=keyboardVector();if(kv.x||kv.y){velocity.set(kv.x*KEY_TURN_SPEED,kv.y*KEY_TURN_SPEED);recognize=0;}rotateWorld(velocity.x,velocity.y);velocity.multiplyScalar(Math.pow(.12,dt));if(velocity.length()<.000018)velocity.set(0,0);}
     updateShakeDynamics(dt,t);updateLandedProps(dt);updateApe(dt,t);if(++foliageCullFrame%6===0){for(const d of foliageDecor)d.g.visible=d.n.clone().applyQuaternion(world.quaternion).dot(CAMERA_CENTER_NORMAL)>-.12;}dropTimer-=dt;if(dropTimer<=0){if(planes.length<3){if(!firstCargoScheduled){firstCargoScheduled=true;spawnCargoBurst();}else if(Math.random()<.22)spawnCargoBurst();else spawnDrop();}dropTimer=2.8+Math.random()*2;}
-    for(let i=planes.length-1;i>=0;i--){const p=planes[i],heavy=p.kind==='heavyCargo';p.progress+=dt*(heavy?.255:.36);p.g.position.copy(p.n).multiplyScalar(R+(heavy?CARGO_PLANE_ROUTE_HEIGHT:SMALL_PLANE_ROUTE_HEIGHT)).addScaledVector(p.tangent,(p.progress-.5)*(heavy?5.8:5.2));if(heavy)p.g.position.addScaledVector(p.skyLift,CARGO_PLANE_SKY_LIFT);p.g.quaternion.copy(p.orientation);const actualAltitude=p.g.position.length()-R;if(heavy)document.documentElement.dataset.cargoActualAltitude=actualAltitude.toFixed(2);else document.documentElement.dataset.smallActualAltitude=actualAltitude.toFixed(2);
-      if(heavy){for(const prop of p.g.userData.props)prop.rotation.x+=dt*27;const open=THREE.MathUtils.smoothstep(p.progress,.25,.43)*(1-THREE.MathUtils.smoothstep(p.progress,.74,.91));p.g.userData.rampPivot.rotation.z=-open*.7;for(let j=0;j<3;j++){const preview=p.g.userData.cargoPreviews[j];if(preview.visible)preview.position.x-=dt*open*(.1+j*.035);const threshold=.45+j*.045;if(p.releasedCount===j&&p.progress>=threshold){preview.visible=false;p.releasedCount++;const dropHeight=6.25-j*.12,origin=p.g.position.clone().addScaledVector(p.tangent,-.82-j*.08),offset=origin.clone().addScaledVector(p.points[j],-(R+dropHeight));releaseDrop(p.types[j],p.points[j],dropHeight,offset);document.documentElement.dataset.cargoBurst=String(p.releasedCount);document.documentElement.dataset.cargoAltitude=(p.g.position.length()-R).toFixed(2);playCue('fall');}}
-      }else{p.g.userData.prop.rotation.x+=dt*24;const pilot=p.g.userData.pilot;if(pilot){const bob=Math.sin(t*8+p.progress*5);pilot.position.y=.32+bob*.008;pilot.userData.head.rotation.z=bob*.045;const gesture=p.g.userData.dropGesture||0;if(gesture>0){p.g.userData.dropGesture=Math.max(0,gesture-dt);const wave=Math.sin((.58-gesture)*Math.PI*5);pilot.userData.arms[0].rotation.z=-1.35+wave*.28;pilot.userData.arms[0].rotation.x=-.4;pilot.userData.arms[1].rotation.z=.85;}else{pilot.userData.arms[0].rotation.set(0,0,-.55+bob*.08);pilot.userData.arms[1].rotation.set(0,0,.55-bob*.08);}}if(!p.released&&p.progress>=.48){p.released=true;p.g.userData.dropGesture=.58;releaseDrop(p.type,p.n);}}
+    for(let i=planes.length-1;i>=0;i--){const p=planes[i],heavy=p.kind==='heavyCargo';p.progress+=dt*(heavy?.255:.36);
+      // Hazard pilots visibly correct their approach while still inbound. Once
+      // committed, the plane holds that lane and releases only at the overhead
+      // point instead of appearing to throw an item in from far behind.
+      if(!heavy&&p.tracksApe&&!p.released&&p.progress<.42){const lead=p.type==='rock'?Math.min(.34,.12+runSpeed*.8):Math.min(.24,.08+runSpeed*.65),aim=apeN.clone().lerp(targetN,lead).normalize();p.n.slerp(aim,Math.min(1,dt*2.7)).normalize();p.tangent.addScaledVector(p.n,-p.tangent.dot(p.n)).normalize();const side=new THREE.Vector3().crossVectors(p.tangent,p.n).normalize();p.orientation.setFromRotationMatrix(new THREE.Matrix4().makeBasis(p.tangent,p.n,side));}
+      p.g.position.copy(p.n).multiplyScalar(R+(heavy?CARGO_PLANE_ROUTE_HEIGHT:SMALL_PLANE_ROUTE_HEIGHT)).addScaledVector(p.tangent,(p.progress-.5)*(heavy?5.8:5.2));if(heavy)p.g.position.addScaledVector(p.skyLift,CARGO_PLANE_SKY_LIFT);p.g.quaternion.copy(p.orientation);const actualAltitude=p.g.position.length()-R;if(heavy)document.documentElement.dataset.cargoActualAltitude=actualAltitude.toFixed(2);else document.documentElement.dataset.smallActualAltitude=actualAltitude.toFixed(2);
+      if(heavy){for(const prop of p.g.userData.props)prop.rotation.x+=dt*27;const open=THREE.MathUtils.smoothstep(p.progress,.25,.43)*(1-THREE.MathUtils.smoothstep(p.progress,.74,.91));p.g.userData.rampPivot.rotation.z=-open*.7;for(let j=0;j<3;j++){const preview=p.g.userData.cargoPreviews[j];if(preview.visible)preview.position.x-=dt*open*(.1+j*.035);const threshold=.47+j*.03;if(p.releasedCount===j&&p.progress>=threshold){preview.visible=false;p.releasedCount++;const verticalPoint=p.g.position.clone().normalize(),dropHeight=p.g.position.length()-R;releaseDrop(p.types[j],verticalPoint,dropHeight);document.documentElement.dataset.cargoBurst=String(p.releasedCount);document.documentElement.dataset.cargoAltitude=dropHeight.toFixed(2);document.documentElement.dataset.cargoRelease='vertical-overhead';playCue('fall');}}
+      }else{p.g.userData.prop.rotation.x+=dt*24;const pilot=p.g.userData.pilot;if(pilot){const bob=Math.sin(t*8+p.progress*5);pilot.position.y=.32+bob*.008;pilot.userData.head.rotation.z=bob*.045;const gesture=p.g.userData.dropGesture||0;if(gesture>0){p.g.userData.dropGesture=Math.max(0,gesture-dt);const wave=Math.sin((.58-gesture)*Math.PI*5);pilot.userData.arms[0].rotation.z=-1.35+wave*.28;pilot.userData.arms[0].rotation.x=-.4;pilot.userData.arms[1].rotation.z=.85;}else{pilot.userData.arms[0].rotation.set(0,0,-.55+bob*.08);pilot.userData.arms[1].rotation.set(0,0,.55-bob*.08);}}if(!p.released&&p.progress>=.5){p.released=true;p.g.userData.dropGesture=.58;const verticalPoint=p.g.position.clone().normalize(),dropHeight=p.g.position.length()-R;releaseDrop(p.type,verticalPoint,dropHeight);document.documentElement.dataset.planeRelease='vertical-overhead';}}
       if(p.progress>(heavy?1.18:1.12)){world.remove(p.g);planes.splice(i,1);}}
     for(let i=drops.length-1;i>=0;i--){const d=drops[i];
       if(!d.landed){d.h-=d.vy*dt;d.vy+=(d.gravity??.52)*dt;if(d.h<=.015){d.h=.015;d.landed=true;d.groundTime=0;finishAirDrop(d);if(d.type!=='banana')playCue('land');}}
@@ -947,7 +972,7 @@ function frame(now){
       if(d.fallTrail){const attr=d.fallTrail.geometry.attributes.position,p=d.g.position;attr.setXYZ(0,p.x,p.y,p.z);attr.setXYZ(1,p.x+d.n.x*(.42+d.vy*.28),p.y+d.n.y*(.42+d.vy*.28),p.z+d.n.z*(.42+d.vy*.28));attr.needsUpdate=true;d.fallTrail.material.opacity=Math.min(.82,.36+d.vy*.28);}
       // Telegraph a grounded object's removal with a fast, readable blink.
       // Timing and collision behavior remain unchanged; only visibility pulses.
-      const flashStart=d.type==='hive'?39.2:['banana','coconut','coconutDrink','gem','star','heart','helmet'].includes(d.type)?7.35:3.35,willDisappear=['banana','coconut','coconutDrink','gem','star','heart','helmet','bomb','hive'].includes(d.type);
+      const flashStart=d.type==='hive'?39.2:d.type==='coconut'?15.35:['banana','coconutDrink','gem','star','heart','helmet'].includes(d.type)?7.35:3.35,willDisappear=['banana','coconut','coconutDrink','gem','star','heart','helmet','bomb','hive'].includes(d.type);
       d.g.visible=!d.landed||!willDisappear||d.groundTime<flashStart||Math.floor((d.groundTime-flashStart)*12)%2===0;
       const closeness=Math.max(0,1-d.h/2.15);
       // Keep drops proportional to the small ape: distant items are tiny, and
@@ -958,7 +983,13 @@ function frame(now){
       const apeCatchPoint=apeN.clone().multiplyScalar(R+.2);
       const apeHeadPoint=apeN.clone().multiplyScalar(R+.43);
       const goodDrop=['banana','coconut','coconutDrink','gem','star','heart','helmet'].includes(d.type);
-      if(goodDrop&&d.g.position.distanceTo(apeCatchPoint)<.22&&!(d.type==='heart'&&lives>=MAX_LIVES)&&!(d.type==='helmet'&&helmetEquipped)){
+      // A reward that lands beside a trunk gets a slightly wider pickup reach.
+      // This lets the ape collect it from the safe detour instead of being
+      // forced through the tree's solid collision area.
+      if(d.treeMagnet===undefined)d.treeMagnet=d.landed&&goodDrop&&props.some(p=>p.kind==='tree'&&d.n.angleTo(p.n)<propHitAngle(p)+.045);
+      const besideTree=d.landed&&goodDrop&&d.treeMagnet,pickupReach=besideTree?.31:.22;
+      if(besideTree&&d.n.angleTo(apeN)*R<.72){d.n.slerp(apeN,Math.min(1,dt*3.8)).normalize();document.documentElement.dataset.treePickupMagnet=d.type;}
+      if(goodDrop&&d.g.position.distanceTo(apeCatchPoint)<pickupReach&&!(d.type==='heart'&&lives>=MAX_LIVES)&&!(d.type==='helmet'&&helmetEquipped)){
         finishAirDrop(d);playCue('catch');if(Math.random()<.38)setTimeout(()=>monkeyVocal('happy'),110);
         if(d.type==='heart'){
           lives=Math.min(MAX_LIVES,lives+1);updateHUD();toast.textContent='+1 LIFE!';
@@ -985,7 +1016,7 @@ function frame(now){
       }
       if(d.landed&&d.type==='hive'&&!d.triggered)spawnBees(d);
       if(d.landed&&d.type==='bomb'&&d.groundTime>=4){explodeBomb(d);world.remove(d.g);drops.splice(i,1);continue;}
-      if(d.landed&&goodDrop&&d.groundTime>=8){document.documentElement.dataset.lastExpiredDrop=`${d.type}:${d.groundTime.toFixed(2)}`;world.remove(d.g);drops.splice(i,1);continue;}
+      if(d.landed&&goodDrop&&d.groundTime>=(d.type==='coconut'?16:8)){document.documentElement.dataset.lastExpiredDrop=`${d.type}:${d.groundTime.toFixed(2)}`;world.remove(d.g);drops.splice(i,1);continue;}
       if(d.landed&&d.type==='hive'&&d.groundTime>=40){world.remove(d.g);if(d.zoneRing)world.remove(d.zoneRing);drops.splice(i,1);continue;}
     }
     for(let i=bees.length-1;i>=0;i--){const b=bees[i];b.life-=dt;const falling=!b.source.landed,originGap=b.origin.angleTo(apeN),surfaceDistance=originGap*R,inZone=!falling&&surfaceDistance<=BEE_ATTACK_DISTANCE;if(!inZone)b.armed=true;

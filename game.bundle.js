@@ -35008,11 +35008,18 @@ void main() {
   var groundTexture = new TextureLoader().load("assets/mossy-globe-ground-v1.png");
   groundTexture.colorSpace = SRGBColorSpace;
   groundTexture.wrapS = groundTexture.wrapT = RepeatWrapping;
-  groundTexture.repeat.set(1.72, 1.38);
+  groundTexture.repeat.set(2.35, 1.88);
   groundTexture.offset.set(0.137, 0.083);
   groundTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  groundTexture.magFilter = LinearFilter;
+  groundTexture.magFilter = NearestFilter;
   groundTexture.minFilter = LinearMipmapLinearFilter;
+  var referenceEarthTexture = new TextureLoader().load("assets/reference-earth-wall-v1.png");
+  referenceEarthTexture.colorSpace = SRGBColorSpace;
+  referenceEarthTexture.wrapS = referenceEarthTexture.wrapT = RepeatWrapping;
+  referenceEarthTexture.repeat.set(2.8, 1.45);
+  referenceEarthTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  referenceEarthTexture.minFilter = LinearMipmapLinearFilter;
+  referenceEarthTexture.magFilter = LinearFilter;
   var globeMat = new MeshPhysicalMaterial({ color: 12443547, map: groundTexture, bumpMap: groundTexture, bumpScale: 0.052, roughness: 0.94, metalness: 0, clearcoat: 0.02, clearcoatRoughness: 0.92 });
   var HOLE_NORMALS = Array.from({ length: 5 }, (_, i) => {
     const lat = -0.42 + i * 0.21, lon = 1.05 + i * 1.17;
@@ -35782,8 +35789,8 @@ void main() {
     else if (k === 0) {
       if (i % 4 === 0) palm(n, 0.66 + i % 4 * 0.045);
       else tree(n, 0.58 + i % 5 * 0.05);
-    } else if (k === 4) rock(n, 0.42 + i % 4 * 0.06);
-    else if (k === 8) log(n, 0.48 + i % 3 * 0.07);
+    } else if (k === 4 && i % 45 === 4) rock(n, 0.42 + i % 4 * 0.06);
+    else if (k === 8 && i % 45 === 23) log(n, 0.48 + i % 3 * 0.07);
     else foliage(n, 0.55 + i % 3 * 0.08);
   }
   var EXTRA_PALM_COUNT = 18;
@@ -35817,13 +35824,13 @@ void main() {
     return sh;
   }
   function irregularPitWall() {
-    const seg = 28, rings = 3, pos = [], uv = [], idx = [];
+    const seg = 40, rings = 4, pos = [], uv = [], idx = [];
     for (let j = 0; j < rings; j++) {
-      const y = 0.045 - j * 0.095, base = [0.44, 0.37, 0.27][j];
+      const y = -0.012 - j * 0.085, base = [0.305, 0.27, 0.22, 0.15][j];
       for (let i = 0; i < seg; i++) {
-        const a = i / seg * Math.PI * 2, rough = 1 + 0.055 * Math.sin(a * 3.1 + j * 0.8) + 0.04 * Math.cos(a * 6.2 - j), r = base * rough;
-        pos.push(Math.cos(a) * r, y, Math.sin(a) * r * 0.72);
-        uv.push(i / seg, j / (rings - 1));
+        const a = i / seg * Math.PI * 2, rough = 1 + 0.06 * Math.sin(a * 3.1 + j * 0.8) + 0.035 * Math.cos(a * 6.2 - j), r = base * rough;
+        pos.push(Math.cos(a) * r, y, Math.sin(a) * r * 0.76);
+        uv.push(i / seg, j / (rings - 1) * 1.6);
       }
     }
     for (let j = 0; j < rings - 1; j++) for (let i = 0; i < seg; i++) {
@@ -35838,63 +35845,39 @@ void main() {
     return geo;
   }
   function groundHole(n, s = 1) {
-    const g = new Group(), pitMat = new MeshBasicMaterial({ map: pitDepthTexture, color: 16777215, side: DoubleSide }), soilMat = new MeshStandardMaterial({ color: 10580548, map: holeSoilTexture, bumpMap: holeSoilTexture, bumpScale: 0.07, roughness: 1 });
-    const openingShape = roundedHoleShape(0.3, 0.72, 0.8, 0.075);
+    const g = new Group(), pitMat = new MeshBasicMaterial({ map: pitDepthTexture, color: 16777215, side: DoubleSide });
+    const coverShape = roundedHoleShape(0.64, 0.86, 0.18, 0.035), coverOpening = roundedHoleShape(0.295, 0.72, 0.8, 0.075);
+    coverShape.holes.push(coverOpening);
+    const coverMat = new MeshStandardMaterial({ color: 11852176, map: groundTexture, bumpMap: groundTexture, bumpScale: 0.045, roughness: 0.96, side: DoubleSide });
+    const cover = new Mesh(new ShapeGeometry(coverShape, 32), coverMat);
+    cover.rotation.x = -Math.PI / 2;
+    cover.position.y = 6e-3;
+    cover.receiveShadow = true;
+    g.add(cover);
+    const linerMat = new MeshStandardMaterial({ color: 3678742, map: referenceEarthTexture, bumpMap: referenceEarthTexture, bumpScale: 0.09, roughness: 1, side: DoubleSide });
+    const liner = new Mesh(new CylinderGeometry(0.62, 0.22, 0.36, 48, 4, true), linerMat);
+    liner.position.y = -0.185;
+    liner.receiveShadow = true;
+    g.add(liner);
+    const openingShape = roundedHoleShape(0.145, 0.72, 0.8, 0.075);
     const pit = new Mesh(new ShapeGeometry(openingShape), pitMat);
     pit.rotation.x = -Math.PI / 2;
-    pit.position.y = -0.17;
+    pit.position.y = -0.27;
     g.add(pit);
-    const backstopMat = new MeshBasicMaterial({ color: 65792, side: DoubleSide }), backstop = new Mesh(new ShapeGeometry(roundedHoleShape(0.57, 0.78, 0.3, 0.04)), backstopMat);
+    const backstopMat = new MeshBasicMaterial({ color: 65792, side: DoubleSide }), backstop = new Mesh(new ShapeGeometry(roundedHoleShape(0.21, 0.78, 0.3, 0.04)), backstopMat);
     backstop.rotation.x = -Math.PI / 2;
-    backstop.position.y = -0.27;
+    backstop.position.y = -0.31;
     g.add(backstop);
-    const bankShape = roundedHoleShape(0.86, 0.74, 2.1, 0.13);
-    bankShape.holes.push(roundedHoleShape(0.445, 0.72, 0.8, 0.075));
-    const dirtBank = new Mesh(new ShapeGeometry(bankShape), soilMat);
-    dirtBank.rotation.x = -Math.PI / 2;
-    dirtBank.position.y = 0.024;
-    dirtBank.receiveShadow = true;
-    g.add(dirtBank);
-    const wallMat = new MeshStandardMaterial({ color: 5189403, map: holeSoilTexture, bumpMap: holeSoilTexture, bumpScale: 0.085, roughness: 1, side: DoubleSide }), wall = new Mesh(irregularPitWall(), wallMat);
+    const wallMat = new MeshStandardMaterial({ color: 9267783, map: referenceEarthTexture, bumpMap: referenceEarthTexture, bumpScale: 0.12, roughness: 1, side: DoubleSide }), wall = new Mesh(irregularPitWall(), wallMat);
     wall.receiveShadow = true;
     g.add(wall);
-    const grainMat = new MeshStandardMaterial({ color: 3679e3, roughness: 1 }), grainGeo = new DodecahedronGeometry(0.018, 0), grains = new InstancedMesh(grainGeo, grainMat, 18), grainDummy = new Object3D();
-    for (let i = 0; i < 18; i++) {
-      const a = i * 2.399963 + 0.2, r = 0.51 + i % 5 * 0.048;
-      grainDummy.position.set(Math.cos(a) * r, 0.043, Math.sin(a) * r * 0.74);
-      grainDummy.rotation.set(i * 0.31, i * 0.77, 0);
-      grainDummy.scale.set(1 + i % 3 * 0.3, 0.32, 0.7 + i % 2 * 0.25);
-      grainDummy.updateMatrix();
-      grains.setMatrixAt(i, grainDummy.matrix);
-    }
-    grains.instanceMatrix.needsUpdate = true;
-    g.add(grains);
-    for (let i = 0; i < 7; i++) {
-      const a = [0.38, 1.12, 1.74, 2.68, 3.56, 4.42, 5.35][i], r = 0.59 + i % 3 * 0.08, clod = new Mesh(new SphereGeometry(0.045 + i % 3 * 0.012, 10, 7), i === 1 || i === 3 || i === 6 ? rockMat : soilMat);
-      clod.position.set(Math.cos(a) * r, 0.056, Math.sin(a) * r * 0.72);
-      clod.scale.set(1.35, 0.55, 0.85);
-      clod.rotation.y = -a + i * 0.31;
-      clod.castShadow = true;
-      g.add(clod);
-    }
-    const rootMat = new MeshStandardMaterial({ color: 5320732, roughness: 1 });
-    for (const a of [0.34, 3.62]) {
-      const root = new Mesh(new CylinderGeometry(0.018, 0.028, 0.34, 7), rootMat);
-      root.rotation.z = Math.PI / 2;
-      root.rotation.y = -a;
-      root.position.set(Math.cos(a) * 0.5, 0.058, Math.sin(a) * 0.37);
-      g.add(root);
-    }
-    const edgeGrassMat = new MeshStandardMaterial({ color: 7050295, roughness: 0.92 });
-    for (let i = 0; i < 6; i++) {
-      const a = 0.7 + i * 1.73, r = 0.72 + i % 2 * 0.04;
-      for (let j = 0; j < 3; j++) {
-        const blade = new Mesh(new ConeGeometry(0.011, 0.09 + j * 0.018, 5), edgeGrassMat);
-        blade.position.set(Math.cos(a) * r + (j - 1) * 0.018, 0.071, Math.sin(a) * r * 0.74);
-        blade.rotation.z = (j - 1) * 0.24;
-        blade.rotation.y = -a;
-        g.add(blade);
-      }
+    for (let i = 0; i < 3; i++) {
+      const a = [0.9, 2.9, 5.1][i], r = 0.54 + i % 2 * 0.08, stone = new Mesh(new SphereGeometry(0.04 + i * 9e-3, 10, 7), rockMat);
+      stone.position.set(Math.cos(a) * r, 0.042, Math.sin(a) * r * 0.72);
+      stone.scale.set(1.35, 0.52, 0.85);
+      stone.rotation.y = -a + i * 0.31;
+      stone.castShadow = true;
+      g.add(stone);
     }
     for (let i = props.length - 1; i >= 0; i--) {
       if (n.angleTo(props[i].n) < 0.065) {
@@ -36232,6 +36215,8 @@ void main() {
   var holeRespawnPoint = null;
   var holeFallCenter = null;
   var holeGameOverPending = false;
+  var jumpTimer = 0;
+  var jumpObstacle = null;
   var tripObstacle = null;
   var obstacleGrace = 0;
   var avoidObstacle = null;
@@ -36510,7 +36495,7 @@ void main() {
   var CARGO_PLANE_MODEL_SCALE = 0.62;
   var SMALL_PLANE_ROUTE_HEIGHT = 4.2;
   var CARGO_PLANE_ROUTE_HEIGHT = 6.5;
-  var CARGO_PLANE_SKY_LIFT = 9;
+  var CARGO_PLANE_SKY_LIFT = 0;
   Object.assign(document.documentElement.dataset, { smallPlaneScale: SMALL_PLANE_MODEL_SCALE.toFixed(2), cargoPlaneScale: CARGO_PLANE_MODEL_SCALE.toFixed(2), smallPlaneRouteHeight: SMALL_PLANE_ROUTE_HEIGHT.toFixed(2), cargoPlaneRouteHeight: CARGO_PLANE_ROUTE_HEIGHT.toFixed(2), cargoHeightRatio: (CARGO_PLANE_ROUTE_HEIGHT / SMALL_PLANE_ROUTE_HEIGHT).toFixed(2) });
   function pickDropType() {
     let r = Math.random();
@@ -36748,9 +36733,17 @@ void main() {
       drop.fallTrail = null;
     }
   }
+  function visibleTreeCoconut(tree2) {
+    let nut = null;
+    tree2?.group?.traverse((o) => {
+      if (!nut && o.name?.startsWith("Coconut_") && o.visible) nut = o;
+    });
+    return nut;
+  }
   function dropCoconut(tree2) {
-    const looseNut = tree2.group.getObjectByProperty("name", "Coconut_0")?.parent?.children.find((o) => o.name.startsWith("Coconut_") && o.visible);
-    if (looseNut) looseNut.visible = false;
+    const looseNut = visibleTreeCoconut(tree2);
+    if (!looseNut) return false;
+    looseNut.visible = false;
     const g = new Group(), shell = new Mesh(new SphereGeometry(0.16, 14, 10), new MeshStandardMaterial({ color: 7684127, roughness: 0.94 }));
     shell.scale.set(0.82, 1.08, 0.82);
     shell.castShadow = true;
@@ -36760,7 +36753,7 @@ void main() {
       eye.position.set(Math.cos(a) * 0.055, 0.12, Math.sin(a) * 0.055);
       g.add(eye);
     }
-    const n = offsetDropPoint(tree2.n, 0.018), drop = { type: "coconut", n, g, h: 0.78, vy: 0.2, gravity: 0.46, landed: false, groundTime: 0, triggered: false };
+    const n = offsetDropPoint(tree2.n, 0.055), drop = { type: "coconut", n, g, h: 0.78, vy: 0.2, gravity: 0.46, landed: false, groundTime: 0, triggered: false, treeMagnet: true };
     world.add(g);
     drops.push(drop);
     startFallWhistle(drop);
@@ -36770,6 +36763,7 @@ void main() {
       if (!knockedOut && toast.textContent === "COCONUT SHAKEN LOOSE!") toast.textContent = "";
     }, 900);
     playCue("coconut");
+    return true;
   }
   function makeGem() {
     const g = new Group(), mat = new MeshPhysicalMaterial({ color: 3524863, emissive: 483227, emissiveIntensity: 0.75, metalness: 0.08, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.12 }), gem = new Mesh(new OctahedronGeometry(0.18, 0), mat);
@@ -36843,7 +36837,7 @@ void main() {
     return type === "banana" ? makeBanana() : type === "coconutDrink" ? makeCoconutDrink() : type === "star" ? makeStar() : type === "gem" ? makeGem() : type === "heart" ? makeHeart() : type === "helmet" ? makeHelmet() : type === "bomb" ? makeBomb() : type === "rock" ? makeFallingRock() : type === "log" ? makeFallingLog() : makeHive();
   }
   function dropTreeReward(tree2, type) {
-    const g = type === "heart" ? makeHeart() : type === "coconutDrink" ? makeCoconutDrink() : type === "star" ? makeStar() : makeGem(), n = offsetDropPoint(tree2.n, 0.018), drop = { type, n, g, h: 0.78, vy: 0.14, landed: false, groundTime: 0, triggered: false };
+    const g = type === "heart" ? makeHeart() : type === "coconutDrink" ? makeCoconutDrink() : type === "star" ? makeStar() : makeGem(), n = offsetDropPoint(tree2.n, 0.055), drop = { type, n, g, h: 0.78, vy: 0.14, landed: false, groundTime: 0, triggered: false, treeMagnet: true };
     world.add(g);
     drops.push(drop);
     document.documentElement.dataset.treeDrop = type;
@@ -36885,7 +36879,7 @@ void main() {
     const orientation = new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(tangent, planeUp, planeSide));
     const g = makeCargoPlane();
     world.add(g);
-    planes.push({ g, type, n, tangent, orientation, progress: 0, released: false });
+    planes.push({ g, type, n, tangent, orientation, progress: 0, released: false, tracksApe: !goodCargo });
   }
   function spawnCargoBurst() {
     const good = ["banana", "coconutDrink", "gem", "star"], hazards = ["rock", "log", "bomb"], types = [good[Math.floor(Math.random() * good.length)], Math.random() < 0.58 ? good[Math.floor(Math.random() * good.length)] : hazards[Math.floor(Math.random() * hazards.length)], good[Math.floor(Math.random() * good.length)]];
@@ -37059,15 +37053,15 @@ void main() {
     mildShakeCharge = intensity > 45e-4 ? mildShakeCharge + dt : Math.max(0, mildShakeCharge - dt * 0.65);
     if (mildShakeCharge > 0.24) {
       mildShakeCharge = 0;
-      if (coconutCooldown <= 0 && Math.random() < 0.72) {
-        const trees = props.filter((p) => p.kind === "tree"), palms = trees.filter((p) => p.style === "palm"), visiblePalms = palms.filter((p) => p.n.clone().applyQuaternion(world.quaternion).angleTo(CAMERA_CENTER_NORMAL) < 0.75), hostPool = visiblePalms.length ? visiblePalms : palms, host = hostPool[Math.floor(Math.random() * hostPool.length)] || trees[Math.floor(Math.random() * trees.length)], roll = Math.random(), forceFirstCoconut = treeShakeDrops === 0;
+      if (coconutCooldown <= 0 && Math.random() < 0.6) {
+        const trees = props.filter((p) => p.kind === "tree"), palms = trees.filter((p) => p.style === "palm"), coconutPalms = palms.filter(visibleTreeCoconut), visibleCoconutPalms = coconutPalms.filter((p) => p.n.clone().applyQuaternion(world.quaternion).angleTo(CAMERA_CENTER_NORMAL) < 0.75), coconutPool = visibleCoconutPalms.length ? visibleCoconutPalms : coconutPalms, visiblePalms = palms.filter((p) => p.n.clone().applyQuaternion(world.quaternion).angleTo(CAMERA_CENTER_NORMAL) < 0.75), hostPool = visiblePalms.length ? visiblePalms : palms, host = hostPool[Math.floor(Math.random() * hostPool.length)] || trees[Math.floor(Math.random() * trees.length)], coconutHost = coconutPool[Math.floor(Math.random() * coconutPool.length)], roll = Math.random(), forceFirstCoconut = treeShakeDrops === 0 && !!coconutHost;
         treeShakeDrops++;
-        if (host && (forceFirstCoconut || roll < 0.64)) dropCoconut(host);
+        if (coconutHost && (forceFirstCoconut || roll < 0.5)) dropCoconut(coconutHost);
         else if (lives < MAX_LIVES && roll < 0.72) dropTreeReward(host, "heart");
         else if (roll < 0.84) dropTreeReward(host, "gem");
         else if (roll < 0.94) dropTreeReward(host, "coconutDrink");
         else dropTreeReward(host, "star");
-        coconutCooldown = 4 + Math.random() * 2.5;
+        coconutCooldown = 6 + Math.random() * 3;
       }
     }
     aggressiveShakeTime = intensity > 0.022 ? aggressiveShakeTime + dt : Math.max(0, aggressiveShakeTime - dt * 0.7);
@@ -37210,6 +37204,12 @@ void main() {
     }, 650);
   }
   function tripApe(obstacle = null, costsHealth = true) {
+    if (obstacle?.kind === "tree") {
+      avoidObstacle = obstacle;
+      avoidTimer = Math.max(avoidTimer, 1.25);
+      document.documentElement.dataset.treeContact = "steer-only";
+      return;
+    }
     if (obstacle && obstacleGrace > 0) return;
     if (trip <= 0) {
       const result = costsHealth ? loseHealth(1) : "hurt";
@@ -37224,6 +37224,19 @@ void main() {
         if (!knockedOut) toast.textContent = "";
       }, 700);
     }
+  }
+  function clearLowObstacle(obstacle) {
+    if (jumpTimer <= 0 && Math.random() < 0.9) {
+      jumpTimer = 0.64;
+      jumpObstacle = obstacle;
+      tripObstacle = obstacle;
+      obstacleGrace = 1.05;
+      tripPhase = "jump";
+      playCue("step");
+      return true;
+    }
+    tripApe(obstacle);
+    return false;
   }
   function damageApe() {
     if (knockedOut || hitTimer > 0) return;
@@ -37254,7 +37267,7 @@ void main() {
     if (respawnAxis.lengthSq() < 1e-3) respawnAxis.set(1, 0, 0);
     respawnAxis.normalize();
     holeFallTimer = 1.4;
-    holeRespawnPoint = clearRecoveryPoint(targetN.clone().applyAxisAngle(respawnAxis, 0.08), targetN);
+    holeRespawnPoint = clearRecoveryPoint(targetN.clone().applyAxisAngle(respawnAxis, 0.15), targetN);
     toast.textContent = "WHOA-A-A!";
     document.documentElement.dataset.lastHazard = "hole";
   }
@@ -37475,9 +37488,10 @@ void main() {
           if (d < 0.25 && desired.dot(towardProp) > 0.18) {
             const clearance = propHitAngle(p);
             if (d < clearance && p.kind !== "tree" && fastCatchup && !(obstacleGrace > 0 && p === tripObstacle)) {
-              apeN.copy(previous);
-              runSpeed = 0;
-              tripApe(p);
+              if (!clearLowObstacle(p)) {
+                apeN.copy(previous);
+                runSpeed = 0;
+              }
               break;
             }
             const sideA = apeN.clone().cross(towardProp).normalize();
@@ -37502,10 +37516,9 @@ void main() {
                 avoidTimer = 1.15;
                 apeN.copy(localDetour(previous, p, targetN, step * 1.15));
                 runSpeed *= 0.92;
-              } else {
+              } else if (!clearLowObstacle(p)) {
                 apeN.copy(previous);
                 runSpeed = 0;
-                tripApe(p);
               }
               break;
             }
@@ -37516,16 +37529,10 @@ void main() {
           }
           if (trip <= 0) for (const p of props) {
             if (p.kind === "tree" && apeN.angleTo(p.n) < propHitAngle(p)) {
-              if (!fastCatchup) {
-                avoidObstacle = p;
-                avoidTimer = 1.25;
-                apeN.copy(localDetour(previous, p, targetN, step * 1.2));
-                runSpeed *= 0.9;
-              } else {
-                apeN.copy(previous);
-                runSpeed = 0;
-                tripApe(p);
-              }
+              avoidObstacle = p;
+              avoidTimer = 1.25;
+              apeN.copy(localDetour(previous, p, targetN, step * 1.2));
+              runSpeed *= 0.9;
               break;
             }
           }
@@ -37533,16 +37540,10 @@ void main() {
             apeN.copy(previous).addScaledVector(desired, step).normalize();
             for (const p of props) {
               if (p.kind === "tree" && apeN.angleTo(p.n) < propHitAngle(p)) {
-                if (!fastCatchup) {
-                  avoidObstacle = p;
-                  avoidTimer = 1.25;
-                  apeN.copy(localDetour(previous, p, targetN, step * 1.2));
-                  runSpeed *= 0.9;
-                } else {
-                  apeN.copy(previous);
-                  runSpeed = 0;
-                  tripApe(p);
-                }
+                avoidObstacle = p;
+                avoidTimer = 1.25;
+                apeN.copy(localDetour(previous, p, targetN, step * 1.2));
+                runSpeed *= 0.9;
                 break;
               }
             }
@@ -37550,7 +37551,6 @@ void main() {
         }
       }
     }
-    if (lastTarget.lengthSq() && lastTarget.angleTo(targetN) > 0.42 && runSpeed > 0.12) tripApe();
     lastTarget.copy(targetN);
     if (hitTimer > 0 || startleTimer > 0 || beeWaveTimer > 0) {
     } else if (angryTimer > 0) {
@@ -37579,6 +37579,24 @@ void main() {
         tripPhase = "run";
         apeModel.rotation.set(0, apeModel.rotation.y, 0);
         head.rotation.set(0, head.rotation.y, 0);
+      }
+    } else if (jumpTimer > 0) {
+      jumpTimer -= dt;
+      const p = 1 - Math.max(0, jumpTimer) / 0.64, arc = Math.sin(p * Math.PI);
+      tripPhase = "jump";
+      apeModel.position.y = 0.18 * arc;
+      apeModel.rotation.x = -0.12 * arc;
+      limbs.armL.rotation.x = -0.55 - 0.45 * arc;
+      limbs.armR.rotation.x = -0.55 - 0.45 * arc;
+      limbs.legL.rotation.x = 0.35 * arc;
+      limbs.legR.rotation.x = 0.35 * arc;
+      limbs.legL.lower.rotation.x = 0.85 * arc;
+      limbs.legR.lower.rotation.x = 0.85 * arc;
+      if (jumpTimer <= 0) {
+        jumpObstacle = null;
+        apeModel.position.y = 0;
+        apeModel.rotation.x = 0;
+        tripPhase = "run";
       }
     } else if (trip > 0) {
       trip -= dt;
@@ -37832,6 +37850,13 @@ void main() {
       for (let i = planes.length - 1; i >= 0; i--) {
         const p = planes[i], heavy = p.kind === "heavyCargo";
         p.progress += dt * (heavy ? 0.255 : 0.36);
+        if (!heavy && p.tracksApe && !p.released && p.progress < 0.42) {
+          const lead = p.type === "rock" ? Math.min(0.34, 0.12 + runSpeed * 0.8) : Math.min(0.24, 0.08 + runSpeed * 0.65), aim = apeN.clone().lerp(targetN, lead).normalize();
+          p.n.slerp(aim, Math.min(1, dt * 2.7)).normalize();
+          p.tangent.addScaledVector(p.n, -p.tangent.dot(p.n)).normalize();
+          const side = new Vector3().crossVectors(p.tangent, p.n).normalize();
+          p.orientation.setFromRotationMatrix(new Matrix4().makeBasis(p.tangent, p.n, side));
+        }
         p.g.position.copy(p.n).multiplyScalar(R + (heavy ? CARGO_PLANE_ROUTE_HEIGHT : SMALL_PLANE_ROUTE_HEIGHT)).addScaledVector(p.tangent, (p.progress - 0.5) * (heavy ? 5.8 : 5.2));
         if (heavy) p.g.position.addScaledVector(p.skyLift, CARGO_PLANE_SKY_LIFT);
         p.g.quaternion.copy(p.orientation);
@@ -37845,14 +37870,15 @@ void main() {
           for (let j = 0; j < 3; j++) {
             const preview = p.g.userData.cargoPreviews[j];
             if (preview.visible) preview.position.x -= dt * open * (0.1 + j * 0.035);
-            const threshold = 0.45 + j * 0.045;
+            const threshold = 0.47 + j * 0.03;
             if (p.releasedCount === j && p.progress >= threshold) {
               preview.visible = false;
               p.releasedCount++;
-              const dropHeight = 6.25 - j * 0.12, origin = p.g.position.clone().addScaledVector(p.tangent, -0.82 - j * 0.08), offset = origin.clone().addScaledVector(p.points[j], -(R + dropHeight));
-              releaseDrop(p.types[j], p.points[j], dropHeight, offset);
+              const verticalPoint = p.g.position.clone().normalize(), dropHeight = p.g.position.length() - R;
+              releaseDrop(p.types[j], verticalPoint, dropHeight);
               document.documentElement.dataset.cargoBurst = String(p.releasedCount);
-              document.documentElement.dataset.cargoAltitude = (p.g.position.length() - R).toFixed(2);
+              document.documentElement.dataset.cargoAltitude = dropHeight.toFixed(2);
+              document.documentElement.dataset.cargoRelease = "vertical-overhead";
               playCue("fall");
             }
           }
@@ -37875,10 +37901,12 @@ void main() {
               pilot.userData.arms[1].rotation.set(0, 0, 0.55 - bob * 0.08);
             }
           }
-          if (!p.released && p.progress >= 0.48) {
+          if (!p.released && p.progress >= 0.5) {
             p.released = true;
             p.g.userData.dropGesture = 0.58;
-            releaseDrop(p.type, p.n);
+            const verticalPoint = p.g.position.clone().normalize(), dropHeight = p.g.position.length() - R;
+            releaseDrop(p.type, verticalPoint, dropHeight);
+            document.documentElement.dataset.planeRelease = "vertical-overhead";
           }
         }
         if (p.progress > (heavy ? 1.18 : 1.12)) {
@@ -37914,14 +37942,20 @@ void main() {
           attr.needsUpdate = true;
           d.fallTrail.material.opacity = Math.min(0.82, 0.36 + d.vy * 0.28);
         }
-        const flashStart = d.type === "hive" ? 39.2 : ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "helmet"].includes(d.type) ? 7.35 : 3.35, willDisappear = ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "helmet", "bomb", "hive"].includes(d.type);
+        const flashStart = d.type === "hive" ? 39.2 : d.type === "coconut" ? 15.35 : ["banana", "coconutDrink", "gem", "star", "heart", "helmet"].includes(d.type) ? 7.35 : 3.35, willDisappear = ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "helmet", "bomb", "hive"].includes(d.type);
         d.g.visible = !d.landed || !willDisappear || d.groundTime < flashStart || Math.floor((d.groundTime - flashStart) * 12) % 2 === 0;
         const closeness = Math.max(0, 1 - d.h / 2.15);
         d.g.scale.setScalar((0.2 + closeness * 0.22) * (d.type === "hive" ? 1.55 : 1));
         const apeCatchPoint = apeN.clone().multiplyScalar(R + 0.2);
         const apeHeadPoint = apeN.clone().multiplyScalar(R + 0.43);
         const goodDrop = ["banana", "coconut", "coconutDrink", "gem", "star", "heart", "helmet"].includes(d.type);
-        if (goodDrop && d.g.position.distanceTo(apeCatchPoint) < 0.22 && !(d.type === "heart" && lives >= MAX_LIVES) && !(d.type === "helmet" && helmetEquipped)) {
+        if (d.treeMagnet === void 0) d.treeMagnet = d.landed && goodDrop && props.some((p) => p.kind === "tree" && d.n.angleTo(p.n) < propHitAngle(p) + 0.045);
+        const besideTree = d.landed && goodDrop && d.treeMagnet, pickupReach = besideTree ? 0.31 : 0.22;
+        if (besideTree && d.n.angleTo(apeN) * R < 0.72) {
+          d.n.slerp(apeN, Math.min(1, dt * 3.8)).normalize();
+          document.documentElement.dataset.treePickupMagnet = d.type;
+        }
+        if (goodDrop && d.g.position.distanceTo(apeCatchPoint) < pickupReach && !(d.type === "heart" && lives >= MAX_LIVES) && !(d.type === "helmet" && helmetEquipped)) {
           finishAirDrop(d);
           playCue("catch");
           if (Math.random() < 0.38) setTimeout(() => monkeyVocal("happy"), 110);
@@ -37985,7 +38019,7 @@ void main() {
           drops.splice(i, 1);
           continue;
         }
-        if (d.landed && goodDrop && d.groundTime >= 8) {
+        if (d.landed && goodDrop && d.groundTime >= (d.type === "coconut" ? 16 : 8)) {
           document.documentElement.dataset.lastExpiredDrop = `${d.type}:${d.groundTime.toFixed(2)}`;
           world.remove(d.g);
           drops.splice(i, 1);
