@@ -474,6 +474,7 @@ let apeN=CAMERA_CENTER_NORMAL.clone(), targetN=apeN.clone(), runSpeed=0, gesture
 let trip=0, tripPhase='run', facing=1, lastTarget=new THREE.Vector3(),reversalFall=false,angryTimer=0,angryStompPlayed=false,holeFallTimer=0,holeRespawnPoint=null,holeFallCenter=null,holeGameOverPending=false;
 let jumpTimer=0,jumpObstacle=null;
 let tripObstacle=null, obstacleGrace=0,avoidObstacle=null,avoidTimer=0,avoidSide=1,stuckTime=0,lastGap=0;
+const apeFacingTangent=new THREE.Vector3();
 let gaitPhase=0;
 let hitTimer=0, startleTimer=0, stunTimer=0,logDizzyTimer=0, beeWaveTimer=0, pendingDamageTrip=false, knockedOut=false;
 function placeApe(){
@@ -484,7 +485,7 @@ function placeApe(){
   apeContact.position.copy(apeN).multiplyScalar(R+.008);
   apeContact.quaternion.setFromUnitVectors(UP,apeN);
   // Turn the model within its tangent plane so its face follows its visible travel direction.
-  const tangent=targetN.clone().addScaledVector(apeN,-targetN.dot(apeN));
+  const tangent=(apeFacingTangent.lengthSq()>.0001?apeFacingTangent:targetN).clone().addScaledVector(apeN,-(apeFacingTangent.lengthSq()>.0001?apeFacingTangent:targetN).dot(apeN));
   if(tangent.lengthSq()>.0001){const local=tangent.normalize().applyQuaternion(apeRoot.quaternion.clone().invert());apeModel.rotation.y=Math.atan2(local.x,local.z);}else{const cameraLocal=camera.position.clone().applyQuaternion(world.quaternion.clone().invert()),view=cameraLocal.addScaledVector(apeN,-cameraLocal.dot(apeN));if(view.lengthSq()>.0001){view.normalize().applyQuaternion(apeRoot.quaternion.clone().invert());apeModel.rotation.y=Math.atan2(view.x,view.z);}}
 }
 placeApe();
@@ -685,6 +686,7 @@ function triggerAggressiveReversal(prior){
   reversalCooldown=7.5;reversalFall=true;facing=prior.x>=0?1:-1;document.documentElement.dataset.shakeEvent='reversal-fall';tripApe();toast.textContent='WHOA!';
 }
 function rotateWorld(dx,dy,userGesture=false){
+  if(userGesture)document.documentElement.dataset.directThumbSeen='1';
   if(Math.abs(dx)+Math.abs(dy)<.000001)return;
   const qx=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),dx);
   const qy=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),dy);
@@ -790,7 +792,9 @@ function clearRecoveryPoint(from,target){
   return best;
 }
 function updateApe(dt,t){
-  gestureDrive=Math.max(0,gestureDrive-dt*1.8);
+  const liveThumbDrive=dragging&&performance.now()-lastGestureAt<140;
+  gestureDrive=liveThumbDrive?Math.max(.12,gestureDrive):Math.max(0,gestureDrive-dt*1.35);
+  document.documentElement.dataset.controlMode=liveThumbDrive?'direct-thumb':'globe-coast';
   obstacleGrace=Math.max(0,obstacleGrace-dt);
   avoidTimer=Math.max(0,avoidTimer-dt);if(avoidTimer<=0)avoidObstacle=null;
   const inv=world.quaternion.clone().invert();targetN.copy(CAMERA_CENTER_NORMAL).applyQuaternion(inv).normalize();
@@ -817,9 +821,9 @@ function updateApe(dt,t){
   else if(trip<=0){
     // Spherical travel speed is capped to what the short legs can physically
     // support. This keeps root motion matched to visible steps instead of skating.
-    const distanceWanted=gap>=.19?.48:gap>=.08?THREE.MathUtils.lerp(.22,.44,(gap-.08)/.11):Math.min(.11,Math.max(0,(gap-.012)*1.75));
-    const wanted=Math.max(distanceWanted,gestureDrive);runSpeed+=THREE.MathUtils.clamp(wanted-runSpeed,-dt*.72,dt*.72);
-    if(gap>.005){
+    const distanceWanted=gap>=.19?.48:gap>=.08?THREE.MathUtils.lerp(.22,.44,(gap-.08)/.11):Math.min(.14,Math.max(0,(gap-.0015)*2.6));
+    const wanted=Math.max(distanceWanted,gestureDrive);if(liveThumbDrive)runSpeed=Math.max(runSpeed,wanted);else runSpeed+=THREE.MathUtils.clamp(wanted-runSpeed,-dt*.72,dt*.72);
+    if(gap>.001){
       const previous=apeN.clone();
       const desired=tangentToward(apeN,targetN);let moveDir=desired.clone();
       const fastCatchup=(gap>=.19||runSpeed>.12)&&obstacleGrace<=0;
@@ -849,7 +853,10 @@ function updateApe(dt,t){
       }
       if(trip<=0){
         moveDir.addScaledVector(apeN,-moveDir.dot(apeN)).normalize();
-        const step=runSpeed*dt;apeN.addScaledVector(moveDir,step).normalize();
+        // Face the direction the feet actually travel, including obstacle detours,
+        // so live thumb steering never looks like sideways sliding.
+        apeFacingTangent.copy(moveDir);
+        const step=Math.min(gap,runSpeed*dt*(liveThumbDrive?1.18:1));apeN.addScaledVector(moveDir,step).normalize();
         // Test the position actually reached this frame. Logs have a long solid
         // footprint, so their trip clearance is deliberately wider than rocks.
         // This prevents a quick or diagonal chase step from slipping through.
@@ -961,7 +968,7 @@ function frame(now){
       // Hazard pilots visibly correct their approach while still inbound. Once
       // committed, the plane holds that lane and releases only at the overhead
       // point instead of appearing to throw an item in from far behind.
-      if(!heavy&&p.tracksApe&&!p.released&&p.progress<.42){const lead=p.type==='rock'?Math.min(.34,.12+runSpeed*.8):Math.min(.24,.08+runSpeed*.65),aim=apeN.clone().lerp(targetN,lead).normalize();p.n.slerp(aim,Math.min(1,dt*2.7)).normalize();p.tangent.addScaledVector(p.n,-p.tangent.dot(p.n)).normalize();const side=new THREE.Vector3().crossVectors(p.tangent,p.n).normalize();p.orientation.setFromRotationMatrix(new THREE.Matrix4().makeBasis(p.tangent,p.n,side));}
+      if(!heavy&&p.tracksApe&&!p.released&&p.progress<.42){const lead=p.type==='rock'?Math.min(.34,.12+runSpeed*.8):Math.min(.24,.08+runSpeed*.65),aim=apeN.clone().lerp(targetN,lead).normalize();p.n.lerp(aim,Math.min(1,dt*2.7)).normalize();p.tangent.addScaledVector(p.n,-p.tangent.dot(p.n)).normalize();const side=new THREE.Vector3().crossVectors(p.tangent,p.n).normalize();p.orientation.setFromRotationMatrix(new THREE.Matrix4().makeBasis(p.tangent,p.n,side));}
       p.g.position.copy(p.n).multiplyScalar(R+(heavy?CARGO_PLANE_ROUTE_HEIGHT:SMALL_PLANE_ROUTE_HEIGHT)).addScaledVector(p.tangent,(p.progress-.5)*(heavy?5.8:5.2));if(heavy)p.g.position.addScaledVector(p.skyLift,CARGO_PLANE_SKY_LIFT);p.g.quaternion.copy(p.orientation);const actualAltitude=p.g.position.length()-R;if(heavy)document.documentElement.dataset.cargoActualAltitude=actualAltitude.toFixed(2);else document.documentElement.dataset.smallActualAltitude=actualAltitude.toFixed(2);
       if(heavy){for(const prop of p.g.userData.props)prop.rotation.x+=dt*27;const open=THREE.MathUtils.smoothstep(p.progress,.25,.43)*(1-THREE.MathUtils.smoothstep(p.progress,.74,.91));p.g.userData.rampPivot.rotation.z=-open*.7;for(let j=0;j<3;j++){const preview=p.g.userData.cargoPreviews[j];if(preview.visible)preview.position.x-=dt*open*(.1+j*.035);const threshold=.47+j*.03;if(p.releasedCount===j&&p.progress>=threshold){preview.visible=false;p.releasedCount++;const verticalPoint=p.g.position.clone().normalize(),dropHeight=p.g.position.length()-R;releaseDrop(p.types[j],verticalPoint,dropHeight);document.documentElement.dataset.cargoBurst=String(p.releasedCount);document.documentElement.dataset.cargoAltitude=dropHeight.toFixed(2);document.documentElement.dataset.cargoRelease='vertical-overhead';playCue('fall');}}
       }else{p.g.userData.prop.rotation.x+=dt*24;const pilot=p.g.userData.pilot;if(pilot){const bob=Math.sin(t*8+p.progress*5);pilot.position.y=.32+bob*.008;pilot.userData.head.rotation.z=bob*.045;const gesture=p.g.userData.dropGesture||0;if(gesture>0){p.g.userData.dropGesture=Math.max(0,gesture-dt);const wave=Math.sin((.58-gesture)*Math.PI*5);pilot.userData.arms[0].rotation.z=-1.35+wave*.28;pilot.userData.arms[0].rotation.x=-.4;pilot.userData.arms[1].rotation.z=.85;}else{pilot.userData.arms[0].rotation.set(0,0,-.55+bob*.08);pilot.userData.arms[1].rotation.set(0,0,.55-bob*.08);}}if(!p.released&&p.progress>=.5){p.released=true;p.g.userData.dropGesture=.58;const verticalPoint=p.g.position.clone().normalize(),dropHeight=p.g.position.length()-R;releaseDrop(p.type,verticalPoint,dropHeight);document.documentElement.dataset.planeRelease='vertical-overhead';}}
@@ -990,7 +997,7 @@ function frame(now){
       // forced through the tree's solid collision area.
       if(d.treeMagnet===undefined)d.treeMagnet=d.landed&&goodDrop&&props.some(p=>p.kind==='tree'&&d.n.angleTo(p.n)<propHitAngle(p)+.045);
       const besideTree=d.landed&&goodDrop&&d.treeMagnet,pickupReach=besideTree?.31:.22;
-      if(besideTree&&d.n.angleTo(apeN)*R<.72){d.n.slerp(apeN,Math.min(1,dt*3.8)).normalize();document.documentElement.dataset.treePickupMagnet=d.type;}
+      if(besideTree&&d.n.angleTo(apeN)*R<.72){d.n.lerp(apeN,Math.min(1,dt*3.8)).normalize();document.documentElement.dataset.treePickupMagnet=d.type;}
       if(goodDrop&&d.g.position.distanceTo(apeCatchPoint)<pickupReach&&!(d.type==='heart'&&lives>=MAX_LIVES)&&!(d.type==='helmet'&&helmetEquipped)){
         finishAirDrop(d);playCue('catch');if(Math.random()<.38)setTimeout(()=>monkeyVocal('happy'),110);
         if(d.type==='heart'){

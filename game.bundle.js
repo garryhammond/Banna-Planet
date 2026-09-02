@@ -36225,6 +36225,7 @@ void main() {
   var avoidSide = 1;
   var stuckTime = 0;
   var lastGap = 0;
+  var apeFacingTangent = new Vector3();
   var gaitPhase = 0;
   var hitTimer = 0;
   var startleTimer = 0;
@@ -36238,7 +36239,7 @@ void main() {
     apeRoot.quaternion.setFromUnitVectors(UP, apeN);
     apeContact.position.copy(apeN).multiplyScalar(R + 8e-3);
     apeContact.quaternion.setFromUnitVectors(UP, apeN);
-    const tangent = targetN.clone().addScaledVector(apeN, -targetN.dot(apeN));
+    const tangent = (apeFacingTangent.lengthSq() > 1e-4 ? apeFacingTangent : targetN).clone().addScaledVector(apeN, -(apeFacingTangent.lengthSq() > 1e-4 ? apeFacingTangent : targetN).dot(apeN));
     if (tangent.lengthSq() > 1e-4) {
       const local = tangent.normalize().applyQuaternion(apeRoot.quaternion.clone().invert());
       apeModel.rotation.y = Math.atan2(local.x, local.z);
@@ -36988,6 +36989,7 @@ void main() {
   var lastHiveBuzz = 0;
   var treeShakeDrops = 0;
   function rotateWorld(dx, dy, userGesture = false) {
+    if (userGesture) document.documentElement.dataset.directThumbSeen = "1";
     if (Math.abs(dx) + Math.abs(dy) < 1e-6) return;
     const qx = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), dx);
     const qy = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), dy);
@@ -37333,7 +37335,9 @@ void main() {
     return best;
   }
   function updateApe(dt, t) {
-    gestureDrive = Math.max(0, gestureDrive - dt * 1.8);
+    const liveThumbDrive = dragging && performance.now() - lastGestureAt < 140;
+    gestureDrive = liveThumbDrive ? Math.max(0.12, gestureDrive) : Math.max(0, gestureDrive - dt * 1.35);
+    document.documentElement.dataset.controlMode = liveThumbDrive ? "direct-thumb" : "globe-coast";
     obstacleGrace = Math.max(0, obstacleGrace - dt);
     avoidTimer = Math.max(0, avoidTimer - dt);
     if (avoidTimer <= 0) avoidObstacle = null;
@@ -37459,10 +37463,11 @@ void main() {
       recognize -= dt;
       runSpeed = Math.max(0, runSpeed - dt * 0.9);
     } else if (trip <= 0) {
-      const distanceWanted = gap >= 0.19 ? 0.48 : gap >= 0.08 ? MathUtils.lerp(0.22, 0.44, (gap - 0.08) / 0.11) : Math.min(0.11, Math.max(0, (gap - 0.012) * 1.75));
+      const distanceWanted = gap >= 0.19 ? 0.48 : gap >= 0.08 ? MathUtils.lerp(0.22, 0.44, (gap - 0.08) / 0.11) : Math.min(0.14, Math.max(0, (gap - 15e-4) * 2.6));
       const wanted = Math.max(distanceWanted, gestureDrive);
-      runSpeed += MathUtils.clamp(wanted - runSpeed, -dt * 0.72, dt * 0.72);
-      if (gap > 5e-3) {
+      if (liveThumbDrive) runSpeed = Math.max(runSpeed, wanted);
+      else runSpeed += MathUtils.clamp(wanted - runSpeed, -dt * 0.72, dt * 0.72);
+      if (gap > 1e-3) {
         const previous = apeN.clone();
         const desired = tangentToward(apeN, targetN);
         let moveDir = desired.clone();
@@ -37506,7 +37511,8 @@ void main() {
         }
         if (trip <= 0) {
           moveDir.addScaledVector(apeN, -moveDir.dot(apeN)).normalize();
-          const step = runSpeed * dt;
+          apeFacingTangent.copy(moveDir);
+          const step = Math.min(gap, runSpeed * dt * (liveThumbDrive ? 1.18 : 1));
           apeN.addScaledVector(moveDir, step).normalize();
           for (const p of props) {
             if (p.kind === "hole" && apeN.angleTo(p.n) < propHitAngle(p)) {
@@ -37857,7 +37863,7 @@ void main() {
         p.progress += dt * (heavy ? 0.255 : 0.36);
         if (!heavy && p.tracksApe && !p.released && p.progress < 0.42) {
           const lead = p.type === "rock" ? Math.min(0.34, 0.12 + runSpeed * 0.8) : Math.min(0.24, 0.08 + runSpeed * 0.65), aim = apeN.clone().lerp(targetN, lead).normalize();
-          p.n.slerp(aim, Math.min(1, dt * 2.7)).normalize();
+          p.n.lerp(aim, Math.min(1, dt * 2.7)).normalize();
           p.tangent.addScaledVector(p.n, -p.tangent.dot(p.n)).normalize();
           const side = new Vector3().crossVectors(p.tangent, p.n).normalize();
           p.orientation.setFromRotationMatrix(new Matrix4().makeBasis(p.tangent, p.n, side));
@@ -37957,7 +37963,7 @@ void main() {
         if (d.treeMagnet === void 0) d.treeMagnet = d.landed && goodDrop && props.some((p) => p.kind === "tree" && d.n.angleTo(p.n) < propHitAngle(p) + 0.045);
         const besideTree = d.landed && goodDrop && d.treeMagnet, pickupReach = besideTree ? 0.31 : 0.22;
         if (besideTree && d.n.angleTo(apeN) * R < 0.72) {
-          d.n.slerp(apeN, Math.min(1, dt * 3.8)).normalize();
+          d.n.lerp(apeN, Math.min(1, dt * 3.8)).normalize();
           document.documentElement.dataset.treePickupMagnet = d.type;
         }
         if (goodDrop && d.g.position.distanceTo(apeCatchPoint) < pickupReach && !(d.type === "heart" && lives >= MAX_LIVES) && !(d.type === "helmet" && helmetEquipped)) {
